@@ -8,3 +8,6 @@ __pycache__/
 *.log
 server.pid
 gateway.pid
+
+# User projects — real data lives here, not in the repo
+projects/

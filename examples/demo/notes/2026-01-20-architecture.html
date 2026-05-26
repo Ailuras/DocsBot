@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Overview</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #333; }
+    h1 { font-size: 1.8rem; border-bottom: 2px solid #e8b84d; padding-bottom: 0.5rem; }
+    h2 { font-size: 1.3rem; margin-top: 2rem; color: #444; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
+    th { background: #f8f8f8; }
+    code { background: #f4f4f4; padding: 0.15rem 0.4rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Architecture Overview</h1>
+
+<p>This note describes the high-level architecture of a sample project using the DocsBot data model.</p>
+
+<h2>Component Map</h2>
+
+<table>
+  <tr><th>Component</th><th>Language</th><th>Purpose</th></tr>
+  <tr><td>Parser</td><td>C++</td><td>Read input into AST</td></tr>
+  <tr><td>Encoder</td><td>C++</td><td>Transform AST to solver format</td></tr>
+  <tr><td>Solver Wrapper</td><td>C++</td><td>Dispatch to external solver</td></tr>
+  <tr><td>Validator</td><td>Python</td><td>Check candidate soundness</td></tr>
+  <tr><td>Batch Runner</td><td>Python</td><td>Orchestrate experiment rounds</td></tr>
+</table>
+
+<h2>Data Flow</h2>
+
+<ol>
+  <li>Input → <strong>Parser</strong> produces AST.</li>
+  <li>AST → <strong>Encoder</strong> produces solver-ready formula.</li>
+  <li>Formula → <strong>Solver</strong> returns SAT / UNSAT / UNKNOWN.</li>
+  <li>Candidates → <strong>Validator</strong> checks entailment before use.</li>
+  <li>Results → <strong>Batch Runner</strong> collects manifests.</li>
+</ol>
+
+<h2>Research → Engineering Mapping</h2>
+
+<p>Each research direction (R) in <code>research.js</code> maps to one or more engineering tasks (P) in <code>backlog.js</code> through the <code>serves</code> and <code>depends_on</code> fields. This cross-reference is what makes the dashboard useful: you can see which engineering work is advancing which research goal.</p>
+
+</body>
+</html>

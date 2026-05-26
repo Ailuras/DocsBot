@@ -15,6 +15,15 @@ from docsbot.config import default_data_dir, list_projects, projects_dir
 DOCSBOT_DIR = Path(__file__).resolve().parents[2]
 
 
+def _project_base(project_id: str) -> Path | None:
+    """Find a project directory in projects/ or examples/. Return None if not found."""
+    for root in (projects_dir(), default_data_dir() / "examples"):
+        candidate = root / project_id
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+    return None
+
+
 def _json_response(handler: BaseHTTPRequestHandler, data: Any, status: int = 200) -> None:
     body = json.dumps(data, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -51,12 +60,14 @@ def _serve_static(handler: BaseHTTPRequestHandler, path: str, project_id: str | 
 
     # Try project directory first if project_id given
     if project_id:
-        project_path = projects_dir() / project_id / safe_path
-        if project_path.exists() and project_path.is_file():
-            content = project_path.read_bytes()
-            ctype = mimetypes.guess_type(str(project_path))[0] or "application/octet-stream"
-            _file_response(handler, content, ctype)
-            return True
+        base = _project_base(project_id)
+        if base:
+            project_path = base / safe_path
+            if project_path.exists() and project_path.is_file():
+                content = project_path.read_bytes()
+                ctype = mimetypes.guess_type(str(project_path))[0] or "application/octet-stream"
+                _file_response(handler, content, ctype)
+                return True
 
     # Try templates (SPA assets)
     template_path = DOCSBOT_DIR / "templates" / safe_path
@@ -97,10 +108,14 @@ def make_handler():
                     if len(parts) >= 3 and parts[1] == "data":
                         project_id = urllib.parse.unquote(parts[0])
                         filename = urllib.parse.unquote("/".join(parts[2:]))
+                        base = _project_base(project_id)
+                        if not base:
+                            _json_response(self, {"error": "Project not found"}, 404)
+                            return
                         # Try data/ dir first, then project root (for notes/ etc.)
                         candidates = [
-                            projects_dir() / project_id / "data" / filename,
-                            projects_dir() / project_id / filename,
+                            base / "data" / filename,
+                            base / filename,
                         ]
                         for project_path in candidates:
                             if project_path.exists() and project_path.is_file():
@@ -142,7 +157,8 @@ def make_handler():
                     parts = path[len("/api/projects/"):].split("/")
                     if len(parts) >= 3 and parts[1] == "data":
                         project_id = urllib.parse.unquote(parts[0])
-                        filename = parts[2]
+                        filename = urllib.parse.unquote("/".join(parts[2:]))
+                        # Save only to projects/ (never to examples/)
                         project_path = projects_dir() / project_id / "data" / filename
                         body = _read_body(self)
                         content = body.get("content", "")

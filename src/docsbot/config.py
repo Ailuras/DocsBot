@@ -26,24 +26,31 @@ def projects_dir() -> Path:
 
 
 def list_projects() -> list[dict]:
-    """List all projects with their metadata."""
-    root = projects_dir()
-    if not root.exists():
-        return []
+    """List all projects with their metadata.
 
-    projects = []
-    for entry in sorted(root.iterdir()):
-        if not entry.is_dir():
+    Scans the ``projects/`` directory first; if it is empty or does not exist,
+    falls back to ``examples/`` so that a freshly-cloned repo still shows a
+    demo project.
+    """
+    roots = [projects_dir(), default_data_dir() / "examples"]
+    for root in roots:
+        if not root.exists():
             continue
-        meta_path = entry / "data" / "meta.js"
-        meta = _load_meta(meta_path) if meta_path.exists() else {}
-        projects.append({
-            "id": entry.name,
-            "name": meta.get("project", entry.name),
-            "tagline": meta.get("tagline", ""),
-            "path": str(entry),
-        })
-    return projects
+        projects = []
+        for entry in sorted(root.iterdir()):
+            if not entry.is_dir():
+                continue
+            meta_path = entry / "data" / "meta.js"
+            meta = _load_meta(meta_path) if meta_path.exists() else {}
+            projects.append({
+                "id": entry.name,
+                "name": meta.get("project", entry.name),
+                "tagline": meta.get("tagline", ""),
+                "path": str(entry),
+            })
+        if projects:
+            return projects
+    return []
 
 
 def _load_meta(path: Path) -> dict:

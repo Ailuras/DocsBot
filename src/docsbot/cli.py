@@ -11,7 +11,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from docsbot.config import default_data_dir, list_projects, projects_dir
+from docsbot.config import default_data_dir, list_projects, projects_dir, _slugify
 from docsbot.server import run_server, stop_server
 
 app = typer.Typer(help="DocsBot — interactive notebook manager for project docs")
@@ -161,11 +161,6 @@ def migrate(
         console.print(f"[red]No data/meta.js found in '{folder_path}' or its docs/ subfolder.[/red]")
         raise typer.Exit(1)
 
-    db_path = docs_root / "db.sqlite"
-    if db_path.exists():
-        console.print(f"[yellow]db.sqlite already exists at {db_path}. Delete it first to re-migrate.[/yellow]")
-        raise typer.Exit(1)
-
     def read_js_var(path: Path, var_name: str):
         if not path.exists():
             return None
@@ -205,8 +200,15 @@ def migrate(
     research = read_js_var(data_dir / "research.js", "AUGUR_RESEARCH") or []
     notes_index = read_js_var(data_dir / "notes.js", "AUGUR_NOTES") or []
 
-    # Determine project name
+    # Determine project name and target db path in ~/.docsbot/projects/
     name = project_name or meta_raw.get("project", folder_path.name)
+    project_id = _slugify(name)
+    project_path = projects_dir() / project_id
+    db_path = project_path / "db.sqlite"
+    if db_path.exists():
+        console.print(f"[yellow]db.sqlite already exists at {db_path}. Delete it first to re-migrate.[/yellow]")
+        raise typer.Exit(1)
+    project_path.mkdir(parents=True, exist_ok=True)
 
     console.print(f"Migrating [bold]{name}[/bold] from {docs_root} ...")
 
@@ -219,6 +221,7 @@ def migrate(
         "doc_number": meta_raw.get("doc_number", ""),
         "repo_url": meta_raw.get("repo_url", ""),
         "stale_days": str(meta_raw.get("stale_days", 14)),
+        "repo_path": str(folder_path),
     })
 
     # Migrate custom buckets
@@ -302,9 +305,7 @@ def migrate(
     console.print(f"  [green]✓[/green] {research_count} research items")
     console.print(f"  [green]✓[/green] {note_count} notes")
     console.print(f"[bold green]Migration complete → {db_path}[/bold green]")
-    console.print(f"\nTo register this project:")
-    console.print(f"  [dim]Open the DocsBot dashboard and enter:[/dim]")
-    console.print(f"  [cyan]{folder_path}[/cyan]")
+    console.print(f"\n[dim]Project '{project_id}' is now available in DocsBot.[/dim]")
 
 
 @app.command()

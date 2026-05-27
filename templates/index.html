@@ -26,34 +26,18 @@
         <select id="projectSelect" class="project-select">
           <option value="" disabled selected>Select project...</option>
         </select>
-        <button id="addFolder" class="add-folder-btn" title="Open folder">+</button>
+        <button id="newProjectBtn" class="add-folder-btn" title="New project">+</button>
         <button id="themeToggle" class="theme-btn" title="Toggle theme">◑</button>
       </div>
     </header>
 
-    <div id="folderBar" class="folder-bar" style="display:none;">
-      <span class="folder-bar-label">Open folder</span>
-      <input id="folderBarInput" class="folder-bar-input" type="text"
-             placeholder="/Users/you/MyProject" spellcheck="false" autocomplete="off"
-             list="recentPathsList">
-      <datalist id="recentPathsList"></datalist>
-      <button id="folderBarBtn" class="folder-bar-open-btn">Open</button>
-      <button id="folderBarClose" class="folder-bar-close-btn">✕</button>
-      <span id="folderBarErr" class="folder-bar-err"></span>
-    </div>
-
     <div class="landing" id="landing" style="display:none;">
       <div class="landing-inner">
         <div class="landing-icon">◆</div>
-        <h2 class="landing-title">Open a folder to get started</h2>
-        <p class="landing-subtitle">Enter a project folder path. DocsBot will detect its db.sqlite or guide you through migration.</p>
-        <div class="landing-form">
-          <input type="text" id="folderInput" class="folder-input" placeholder="/Users/you/MyProject"
-                 spellcheck="false" list="recentPathsList">
-          <button class="folder-btn" id="folderBtn">Open</button>
-        </div>
-        <div class="landing-error" id="landingError"></div>
-        <p class="landing-hint">No projects yet? Run <code>uv run docsbot init myproject --demo</code> to create one.</p>
+        <h2 class="landing-title">No projects yet</h2>
+        <p class="landing-subtitle">Create your first project to get started.</p>
+        <button class="folder-btn" id="landingNewBtn">New project</button>
+        <p class="landing-hint">Or run <code>uv run docsbot migrate /path/to/project</code> to import an existing one.</p>
       </div>
     </div>
 

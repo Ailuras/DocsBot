@@ -60,18 +60,55 @@ function toggleTheme() {
   localStorage.setItem('docsbot:theme', next);
 }
 
-// ── Recent paths ──────────────────────────────────────────────────────────────
+// ── New project form ──────────────────────────────────────────────────────────
 
-function getRecentPaths() {
-  try { return JSON.parse(localStorage.getItem('docsbot:recentPaths') || '[]'); } catch { return []; }
-}
-function addRecentPath(path) {
-  const list = [path, ...getRecentPaths().filter(p=>p!==path)].slice(0,10);
-  localStorage.setItem('docsbot:recentPaths', JSON.stringify(list));
-}
-function populateRecentDatalist() {
-  const dl = document.getElementById('recentPathsList');
-  if (dl) dl.innerHTML = getRecentPaths().map(p=>`<option value="${esc(p)}">`).join('');
+function openNewProjectForm() {
+  showFormModal(`
+    <div class="form-header"><div class="form-title">New project</div></div>
+    <div class="form-group">
+      <label class="form-label">Git repository folder (optional)</label>
+      <input id="f-folder" class="form-input" placeholder="/Users/you/MyProject" spellcheck="false" autocomplete="off">
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:.25rem">Auto-fills project name from folder name</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Project name *</label>
+      <input id="f-name" class="form-input" placeholder="My Project">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tagline (optional)</label>
+      <input id="f-tagline" class="form-input" placeholder="Short description">
+    </div>
+    <div class="form-actions">
+      <button id="fSave" class="form-save-btn">Create</button>
+      <button id="fCancel" class="form-cancel-btn">Cancel</button>
+      <span id="fErr" class="form-err"></span>
+    </div>
+  `);
+
+  document.getElementById('f-folder').addEventListener('input', () => {
+    const folder = document.getElementById('f-folder').value.trim().replace(/\\/g, '/');
+    const parts = folder.split('/').filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    if (last) document.getElementById('f-name').value = last;
+  });
+
+  document.getElementById('fCancel').addEventListener('click', hideFormModal);
+
+  document.getElementById('fSave').addEventListener('click', async () => {
+    const errEl = document.getElementById('fErr');
+    const name = document.getElementById('f-name').value.trim();
+    if (!name) { errEl.textContent = 'Name is required'; return; }
+    const payload = {
+      name,
+      tagline: document.getElementById('f-tagline').value.trim(),
+      repo_path: document.getElementById('f-folder').value.trim(),
+    };
+    try {
+      await api('POST', '/api/projects', payload);
+      hideFormModal();
+      location.reload();
+    } catch(e) { errEl.textContent = e.message; }
+  });
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
@@ -575,18 +612,6 @@ async function loadDashboard() {
   await Promise.all([loadTasks(), loadResearch(), loadNotes()]);
 }
 
-// ── Open folder ───────────────────────────────────────────────────────────────
-
-async function openFolder(path) {
-  if (!path) return;
-  try {
-    const data = await api('POST', '/api/open', { path });
-    if (data.project) { addRecentPath(path); location.reload(); }
-  } catch(e) {
-    return e.message;
-  }
-}
-
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 async function boot() {
@@ -598,22 +623,14 @@ async function boot() {
   document.getElementById('formOverlay').addEventListener('click', e => { if (e.target===e.currentTarget) hideFormModal(); });
   document.addEventListener('keydown', e => { if (e.key==='Escape') { hideModal(); hideFormModal(); } });
 
+  document.getElementById('newProjectBtn')?.addEventListener('click', openNewProjectForm);
+
   const projects = await api('GET', '/api/projects').then(d=>d.projects||[]).catch(()=>[]);
 
   if (!projects.length) {
     document.getElementById('landing').style.display = '';
     document.querySelectorAll('.section').forEach(s => s.style.display='none');
-    populateRecentDatalist();
-    const folderBtn = document.getElementById('folderBtn');
-    const folderInput = document.getElementById('folderInput');
-    const landingError = document.getElementById('landingError');
-    folderBtn.addEventListener('click', async () => {
-      landingError.textContent = '';
-      folderBtn.disabled = true; folderBtn.textContent = 'Opening…';
-      const err = await openFolder(folderInput.value.trim());
-      if (err) { landingError.textContent = err; folderBtn.disabled=false; folderBtn.textContent='Open'; }
-    });
-    folderInput.addEventListener('keydown', e => { if (e.key==='Enter') folderBtn.click(); });
+    document.getElementById('landingNewBtn')?.addEventListener('click', openNewProjectForm);
     return;
   }
 
@@ -625,41 +642,12 @@ async function boot() {
   await loadDashboard();
   select.addEventListener('change', async () => { pid = select.value; await loadDashboard(); });
 
-  // New item buttons
   document.getElementById('newTaskBtn')?.addEventListener('click', async () => {
     const buckets = await api('GET', `/api/projects/${encodeURIComponent(pid)}/buckets`).catch(()=>[]);
     openTaskForm(null, buckets);
   });
   document.getElementById('newResearchBtn')?.addEventListener('click', () => openResearchForm(null));
   document.getElementById('newNoteBtn')?.addEventListener('click', () => openNoteForm(null));
-
-  // Folder bar
-  const addBtn = document.getElementById('addFolder');
-  const folderBar = document.getElementById('folderBar');
-  const folderBarInput = document.getElementById('folderBarInput');
-  const folderBarBtn = document.getElementById('folderBarBtn');
-  const folderBarClose = document.getElementById('folderBarClose');
-  const folderBarErr = document.getElementById('folderBarErr');
-
-  addBtn.addEventListener('click', () => {
-    const visible = folderBar.style.display !== 'none';
-    folderBar.style.display = visible ? 'none' : '';
-    if (!visible) { folderBarInput.value=''; folderBarErr.textContent=''; populateRecentDatalist(); folderBarInput.focus(); }
-  });
-  folderBarClose.addEventListener('click', () => { folderBar.style.display='none'; });
-
-  async function submitFolderBar() {
-    const path = folderBarInput.value.trim();
-    if (!path) return;
-    folderBarBtn.disabled=true; folderBarBtn.textContent='Opening…'; folderBarErr.textContent='';
-    const err = await openFolder(path);
-    if (err) { folderBarErr.textContent=err; folderBarBtn.disabled=false; folderBarBtn.textContent='Open'; }
-  }
-  folderBarBtn.addEventListener('click', submitFolderBar);
-  folderBarInput.addEventListener('keydown', e => {
-    if (e.key==='Enter') submitFolderBar();
-    if (e.key==='Escape') folderBar.style.display='none';
-  });
 }
 
 boot().catch(e => {

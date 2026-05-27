@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from docsbot.config import (
-    default_data_dir, list_projects, project_base, register_external_path,
+    create_project, default_data_dir, list_projects, project_base,
 )
 from docsbot.db import ProjectDB
 
@@ -134,13 +134,18 @@ def make_handler():
         def do_POST(self) -> None:
             p = urllib.parse.urlparse(self.path).path
             try:
-                if p == "/api/open":
+                if p == "/api/projects":
                     body = _body(self)
-                    path_str = body.get("path", "").strip()
-                    if not path_str:
-                        _json(self, {"error": "No path provided"}, 400); return
+                    name = body.get("name", "").strip()
+                    if not name:
+                        _json(self, {"error": "name is required"}, 400); return
                     try:
-                        _json(self, {"project": register_external_path(Path(path_str))})
+                        project = create_project(
+                            name=name,
+                            tagline=body.get("tagline", ""),
+                            repo_path=body.get("repo_path", ""),
+                        )
+                        _json(self, {"project": project}, 201)
                     except ValueError as exc:
                         _json(self, {"error": str(exc)}, 400)
                     return

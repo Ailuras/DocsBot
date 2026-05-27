@@ -10,24 +10,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from docsbot.config import default_data_dir, list_projects, load_external_projects, projects_dir, register_external_path
+from docsbot.config import default_data_dir, list_projects, projects_dir, project_base as _project_base, register_external_path
 
 DOCSBOT_DIR = Path(__file__).resolve().parents[2]
-
-
-def _project_base(project_id: str) -> Path | None:
-    """Find a project directory in projects/, examples/, or external registry."""
-    for root in (projects_dir(), default_data_dir() / "examples"):
-        candidate = root / project_id
-        if candidate.exists() and candidate.is_dir():
-            return candidate
-    # Check externally registered projects
-    for entry in load_external_projects():
-        if entry.get("id") == project_id:
-            p = Path(entry["path"])
-            if p.exists() and p.is_dir():
-                return p
-    return None
 
 
 def _json_response(handler: BaseHTTPRequestHandler, data: Any, status: int = 200) -> None:

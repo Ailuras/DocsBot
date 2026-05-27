@@ -89,6 +89,24 @@ def register_external_path(folder: Path) -> dict:
     return {"id": project_id, "name": name, "tagline": tagline, "path": str(docs_root)}
 
 
+def project_base(project_id: str) -> Path | None:
+    """Find the docs-root directory for a project by ID.
+
+    Checks local ``projects/``, ``examples/``, and the external registry.
+    Returns ``None`` if the project is not found.
+    """
+    for root in (projects_dir(), default_data_dir() / "examples"):
+        candidate = root / project_id
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+    for entry in load_external_projects():
+        if entry.get("id") == project_id:
+            p = Path(entry["path"])
+            if p.exists() and p.is_dir():
+                return p
+    return None
+
+
 def list_projects() -> list[dict]:
     """List all projects with their metadata.
 

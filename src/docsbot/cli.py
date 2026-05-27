@@ -212,5 +212,23 @@ def lint(
                 console.print(f"  [green]✓ {f.name}[/green]")
 
 
+@app.command()
+def mcp() -> None:
+    """Run DocsBot as an MCP server (stdio transport).
+
+    \b
+    Mount in Claude Code by adding to ~/.claude/settings.json:
+      "mcpServers": {
+        "docsbot": {
+          "command": "uv",
+          "args": ["run", "--project", "/path/to/DocsBot", "docsbot", "mcp"]
+        }
+      }
+    """
+    from docsbot.mcp_server import run_mcp
+
+    run_mcp()
+
+
 if __name__ == "__main__":
     app()

@@ -1,6 +1,5 @@
 /* ================================================================
-   DocsBot Dashboard — Dark Theme
-   Inspired by PaperBot's refined aesthetic
+   DocsBot Dashboard — Adaptive Theme (dark default, light optional)
    ================================================================ */
 
 :root {
@@ -62,6 +61,50 @@
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s ease;
   --transition-slow: 0.4s ease;
+}
+
+/* ================================================================
+   LIGHT THEME OVERRIDES
+   ================================================================ */
+[data-theme="light"] {
+  --bg-primary:    #f7f5f1;
+  --bg-secondary:  #edeae4;
+  --bg-tertiary:   #e3dfd7;
+  --bg-elevated:   #d8d3c9;
+  --bg-hover:      #cdc8bc;
+  --border-subtle: #d0cbc0;
+  --border-default:#bbb5a8;
+  --text-primary:  #2a2620;
+  --text-secondary:#48423a;
+  --text-tertiary: #6e6558;
+  --text-muted:    #968e82;
+
+  --accent:        #b07a28;
+  --accent-hover:  #c98c30;
+  --accent-dim:    rgba(176, 122, 40, 0.14);
+  --accent-glow:   rgba(176, 122, 40, 0.07);
+
+  --success:    #3a7a52;  --success-bg: rgba(58,122,82,0.1);
+  --error:      #a03838;  --error-bg:   rgba(160,56,56,0.1);
+  --warning:    #9a7030;  --warning-bg: rgba(154,112,48,0.1);
+  --info:       #3868a0;  --info-bg:    rgba(56,104,160,0.1);
+
+  --status-open:        #9a9085;
+  --status-in-progress: #3868a0;
+  --status-blocked:     #9a7030;
+  --status-done:        #3a7a52;
+  --status-abandoned:   #a03838;
+
+  --p0: #a03838; --p0-bg: rgba(160,56,56,0.07);  --p0-line: rgba(160,56,56,0.3);
+  --p1: #9a7030; --p1-bg: rgba(154,112,48,0.07); --p1-line: rgba(154,112,48,0.3);
+  --p2: #3a7a52; --p2-bg: rgba(58,122,82,0.07);  --p2-line: rgba(58,122,82,0.3);
+  --p3: #3868a0; --p3-bg: rgba(56,104,160,0.07); --p3-line: rgba(56,104,160,0.3);
+  --p4: #6a4ea0; --p4-bg: rgba(106,78,160,0.07); --p4-line: rgba(106,78,160,0.3);
+  --p5: #586070; --p5-bg: rgba(88,96,112,0.07);  --p5-line: rgba(88,96,112,0.3);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.14);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.18);
 }
 
 /* ================================================================
@@ -753,7 +796,16 @@ body {
 /* Note HTML content inside modal */
 .modal-html-content {
   line-height: 1.7;
+  color: var(--text-secondary);
 }
+/* Strip inline bg/color from injected note HTML so the theme applies */
+.modal-html-content body,
+.modal-html-content [style*="background"],
+.modal-html-content [style*="color"] {
+  background: transparent !important;
+  color: inherit !important;
+}
+.modal-html-content [style*="background-color"] { background-color: transparent !important; }
 .modal-html-content h1,
 .modal-html-content h2,
 .modal-html-content h3 {
@@ -832,6 +884,30 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* ================================================================
+   THEME TOGGLE BUTTON
+   ================================================================ */
+.theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.theme-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
 }
 
 /* ================================================================

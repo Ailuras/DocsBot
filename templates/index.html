@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Apply saved theme before paint to avoid flash -->
+  <script>
+    (function(){ const t = localStorage.getItem('docsbot:theme'); if(t) document.documentElement.setAttribute('data-theme', t); })();
+  </script>
 </head>
 <body>
   <div class="app">
@@ -25,6 +29,7 @@
           <option value="" disabled selected>Select project...</option>
         </select>
         <button id="addFolder" class="add-folder-btn" title="打开文件夹">+</button>
+        <button id="themeToggle" class="theme-btn" title="切换明暗模式">◑</button>
       </div>
     </header>
 

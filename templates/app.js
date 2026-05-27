@@ -5,6 +5,23 @@ const API_BASE = (() => {
   return lastSlash >= 0 ? path.slice(0, lastSlash) : '';
 })();
 
+// ── Theme ─────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('docsbot:theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.title = saved === 'dark' ? '切换到亮色模式' : '切换到暗色模式';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('docsbot:theme', next);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.title = next === 'dark' ? '切换到亮色模式' : '切换到暗色模式';
+}
+
 // ── Utilities ─────────────────────────────────────────
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -467,9 +484,11 @@ async function openNoteModal(path) {
     const res = await fetch(API_BASE + '/api/projects/' + encodeURIComponent(currentProject) + '/data/' + encodeURIComponent(path));
     if (res.ok) {
       const json = await res.json();
-      const html = json.content || '<div class="empty-state">Note is empty</div>';
-      // Try to extract title from HTML
-      const titleMatch = html.match(/<title>([^<]*)<\/title>/i) || html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
+      const raw = json.content || '';
+      // Extract <body> content so inline styles don't override the theme
+      const bodyMatch = raw.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      const html = bodyMatch ? bodyMatch[1] : (raw || '<div class="empty-state">Note is empty</div>');
+      const titleMatch = raw.match(/<title>([^<]*)<\/title>/i) || raw.match(/<h1[^>]*>([^<]*)<\/h1>/i);
       const title = titleMatch ? titleMatch[1].trim() : esc(path);
 
       document.getElementById('modalBody').innerHTML = `
@@ -525,6 +544,9 @@ async function openFolder(pathOverride) {
 let currentProject = null;
 
 async function boot() {
+  initTheme();
+  document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+
   const select = document.getElementById('projectSelect');
 
   // Modal close handlers

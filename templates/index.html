@@ -8,14 +8,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <!-- Apply saved theme before paint to avoid flash -->
   <script>
     (function(){ const t = localStorage.getItem('docsbot:theme'); if(t) document.documentElement.setAttribute('data-theme', t); })();
   </script>
 </head>
 <body>
   <div class="app">
-    <!-- Header -->
     <header class="header">
       <div class="brand">
         <div class="brand-icon">◆</div>
@@ -28,99 +26,71 @@
         <select id="projectSelect" class="project-select">
           <option value="" disabled selected>Select project...</option>
         </select>
-        <button id="addFolder" class="add-folder-btn" title="打开文件夹">+</button>
-        <button id="themeToggle" class="theme-btn" title="切换明暗模式">◑</button>
+        <button id="addFolder" class="add-folder-btn" title="Open folder">+</button>
+        <button id="themeToggle" class="theme-btn" title="Toggle theme">◑</button>
       </div>
     </header>
 
-    <!-- Folder bar (toggled by + button when projects are loaded) -->
     <div id="folderBar" class="folder-bar" style="display:none;">
-      <span class="folder-bar-label">打开文件夹</span>
+      <span class="folder-bar-label">Open folder</span>
       <input id="folderBarInput" class="folder-bar-input" type="text"
              placeholder="/Users/you/MyProject" spellcheck="false" autocomplete="off"
              list="recentPathsList">
       <datalist id="recentPathsList"></datalist>
-      <button id="folderBarBtn" class="folder-bar-open-btn">打开</button>
+      <button id="folderBarBtn" class="folder-bar-open-btn">Open</button>
       <button id="folderBarClose" class="folder-bar-close-btn">✕</button>
       <span id="folderBarErr" class="folder-bar-err"></span>
     </div>
 
-    <!-- Landing (shown when no projects are registered) -->
     <div class="landing" id="landing" style="display:none;">
       <div class="landing-inner">
         <div class="landing-icon">◆</div>
-        <h2 class="landing-title">打开文件夹以继续</h2>
-        <p class="landing-subtitle">输入项目文件夹路径，DocsBot 将自动检测其中的 docs/ 子目录。</p>
+        <h2 class="landing-title">Open a folder to get started</h2>
+        <p class="landing-subtitle">Enter a project folder path. DocsBot will detect its db.sqlite or guide you through migration.</p>
         <div class="landing-form">
           <input type="text" id="folderInput" class="folder-input" placeholder="/Users/you/MyProject"
                  spellcheck="false" list="recentPathsList">
-          <button class="folder-btn" id="folderBtn">打开</button>
+          <button class="folder-btn" id="folderBtn">Open</button>
         </div>
         <div class="landing-error" id="landingError"></div>
+        <p class="landing-hint">No projects yet? Run <code>uv run docsbot init myproject --demo</code> to create one.</p>
       </div>
     </div>
 
-    <!-- Recent Tasks -->
-    <section class="section" id="sectionTodo">
+    <section class="section" id="sectionTasks">
       <div class="section-header">
-        <h2 class="section-title">Recent Tasks</h2>
-        <span class="section-count" id="todoCount"></span>
-        <button class="section-add-btn" id="newTaskBtn" title="新建任务">+</button>
+        <h2 class="section-title">Tasks</h2>
+        <span class="section-count" id="tasksCount"></span>
+        <button class="section-add-btn" id="newTaskBtn" title="New task">+</button>
       </div>
-      <div id="todoBody">
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading...</p>
-        </div>
+      <div id="tasksBody">
+        <div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>
       </div>
     </section>
 
-    <!-- Research -->
     <section class="section" id="sectionResearch">
       <div class="section-header">
         <h2 class="section-title">Research</h2>
         <span class="section-count" id="researchCount"></span>
-        <button class="section-add-btn" id="newResearchBtn" title="新建研究方向">+</button>
+        <button class="section-add-btn" id="newResearchBtn" title="New research direction">+</button>
       </div>
       <div id="researchBody">
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading...</p>
-        </div>
+        <div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>
       </div>
     </section>
 
-    <!-- Engineering -->
-    <section class="section" id="sectionEngineering">
-      <div class="section-header">
-        <h2 class="section-title">Engineering</h2>
-        <span class="section-count" id="engineeringCount"></span>
-        <button class="section-add-btn" id="newEngineeringBtn" title="新建任务">+</button>
-      </div>
-      <div id="engineeringBody">
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Notes -->
     <section class="section" id="sectionNotes">
       <div class="section-header">
         <h2 class="section-title">Notes</h2>
         <span class="section-count" id="notesCount"></span>
+        <button class="section-add-btn" id="newNoteBtn" title="New note">+</button>
       </div>
       <div id="notesBody">
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading...</p>
-        </div>
+        <div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>
       </div>
     </section>
   </div>
 
-  <!-- Modal -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
       <button class="modal-close" id="modalClose">&times;</button>
@@ -128,7 +98,6 @@
     </div>
   </div>
 
-  <!-- Form Modal (create / edit) -->
   <div class="modal-overlay" id="formOverlay">
     <div class="modal modal-form">
       <button class="modal-close" id="formClose">&times;</button>

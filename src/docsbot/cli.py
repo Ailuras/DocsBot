@@ -19,21 +19,16 @@ console = Console()
 
 
 def _start_daemon(host: str, port: int) -> None:
-    """Launch the server as a detached background process."""
     log_dir = default_data_dir() / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "server.log"
-
     with open(log_path, "a") as log_file:
         proc = subprocess.Popen(
             [sys.executable, "-m", "docsbot.cli", "serve",
              "--host", host, "--port", str(port)],
-            stdout=log_file,
-            stderr=log_file,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True,
+            stdout=log_file, stderr=log_file,
+            stdin=subprocess.DEVNULL, start_new_session=True,
         )
-
     console.print(f"[green]DocsBot started → http://{host}:{port}[/green]")
     console.print(f"[dim]pid {proc.pid} · log: {log_path}[/dim]")
 
@@ -42,7 +37,7 @@ def _start_daemon(host: str, port: int) -> None:
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind address"),
     port: int = typer.Option(8766, help="Port"),
-    daemon: bool = typer.Option(False, "-d", "--daemon", help="Run in background (detached)"),
+    daemon: bool = typer.Option(False, "-d", "--daemon", help="Run in background"),
     stop: bool = typer.Option(False, "--stop", help="Stop the background server"),
     restart: bool = typer.Option(False, "--restart", help="Restart the background server"),
 ) -> None:
@@ -58,25 +53,20 @@ def serve(
     if stop and restart:
         console.print("[red]--stop and --restart are mutually exclusive.[/red]")
         raise typer.Exit(1)
-
     if stop:
         stopped = stop_server(port=port)
         console.print("[yellow]DocsBot stopped.[/yellow]" if stopped
                       else "[yellow]DocsBot is not running.[/yellow]")
         raise typer.Exit(0)
-
     if restart:
-        stopped = stop_server(port=port)
-        if stopped:
+        if stop_server(port=port):
             console.print("[yellow]DocsBot stopped.[/yellow]")
-            time.sleep(0.8)  # wait for port to be released
+            time.sleep(0.8)
         _start_daemon(host, port)
         raise typer.Exit(0)
-
     if daemon:
         _start_daemon(host, port)
         raise typer.Exit(0)
-
     run_server(host=host, port=port)
 
 
@@ -92,12 +82,8 @@ def status() -> None:
             running = True
         except (ValueError, ProcessLookupError, PermissionError):
             pass
-
-    if running:
-        console.print("[green]DocsBot: RUNNING[/green]")
-    else:
-        console.print("[yellow]DocsBot: STOPPED[/yellow]")
-
+    console.print("[green]DocsBot: RUNNING[/green]" if running
+                  else "[yellow]DocsBot: STOPPED[/yellow]")
     projects = list_projects()
     if projects:
         console.print(f"\n[bold]Projects ({len(projects)}):[/bold]")
@@ -111,62 +97,34 @@ def status() -> None:
 @app.command()
 def init(
     name: str = typer.Argument(..., help="Project name (directory name)"),
-    source: str = typer.Option("", help="Path to existing docs/ directory to import"),
+    demo: bool = typer.Option(False, "--demo", help="Seed with demo data"),
 ) -> None:
     """Create a new project notebook."""
+    from docsbot.db import ProjectDB, seed_demo
+
     project_path = projects_dir() / name
-    if project_path.exists():
+    if (project_path / "db.sqlite").exists():
         console.print(f"[red]Project '{name}' already exists.[/red]")
         raise typer.Exit(1)
 
-    project_path.mkdir(parents=True)
-    (project_path / "data").mkdir()
-    (project_path / "notes").mkdir()
-    (project_path / "assets").mkdir()
-
-    # Create default meta.js
-    meta_path = project_path / "data" / "meta.js"
-    meta_path.write_text(
-        f'window.AUGUR_META = {{\n'
-        f'  project: "{name}",\n'
-        f'  short: "{name}",\n'
-        f'  tagline: "Project notebook",\n'
-        f'  description: "",\n'
-        f'  last_updated: "",\n'
-        f'  doc_number: "NB-001",\n'
-        f'  repo_url: "",\n'
-        f'  stale_days: 14,\n'
-        f'  pages: [\n'
-        f'    {{ id: "index", label: "Overview", path: "index.html" }},\n'
-        f'    {{ id: "research", label: "Research", path: "research.html" }},\n'
-        f'    {{ id: "backlog", label: "Backlog", path: "backlog.html" }},\n'
-        f'    {{ id: "notes", label: "Notes", path: "notes.html" }},\n'
-        f'  ],\n'
-        f'  stages: [],\n'
-        f'  external_links: [],\n'
-        f'}};\n',
-        encoding="utf-8"
+    project_path.mkdir(parents=True, exist_ok=True)
+    db = ProjectDB.create(
+        project_path / "db.sqlite",
+        meta={
+            "project": name,
+            "short": name,
+            "tagline": "Project notebook",
+            "description": "",
+            "last_updated": "",
+            "doc_number": "NB-001",
+            "repo_url": "",
+            "stale_days": "14",
+        },
     )
 
-    # Create empty data files
-    for fname in ["research.js", "backlog.js", "roadmap.js", "changelog.js", "notes.js"]:
-        (project_path / "data" / fname).write_text(f"// {fname}\n", encoding="utf-8")
-
-    if source:
-        src = Path(source).expanduser()
-        if src.exists():
-            import shutil
-            for item in src.iterdir():
-                dst = project_path / item.name
-                if item.is_dir():
-                    if dst.exists():
-                        shutil.rmtree(dst)
-                    shutil.copytree(item, dst)
-                else:
-                    shutil.copy2(item, dst)
-            console.print(f"[green]Project '{name}' created with imported data from {src}.[/green]")
-        else:
-            console.print(f"[yellow]Source path not found: {src}. Created empty project.[/yellow]")
+    if demo:
+        seed_demo(db)
+        console.print(f"[green]Project '{name}' created with demo data.[/green]")
     else:
         console.print(f"[green]Project '{name}' created.[/green]")
 
@@ -174,42 +132,179 @@ def init(
 
 
 @app.command()
-def lint(
-    project: str = typer.Option("", help="Project name to lint (default: all)"),
+def migrate(
+    folder: str = typer.Argument(..., help="Path to project folder (or its docs/ dir)"),
+    project_name: str = typer.Option("", "--name", help="Override project name"),
 ) -> None:
-    """Run cross-reference lint on project data."""
-    from docsbot.config import _load_meta
+    """Migrate a JS-based project to SQLite.
 
-    targets = []
-    if project:
-        p = projects_dir() / project
-        if p.exists():
-            targets.append(p)
-        else:
-            console.print(f"[red]Project '{project}' not found.[/red]")
-            raise typer.Exit(1)
-    else:
-        targets = [p for p in projects_dir().iterdir() if p.is_dir()]
+    Reads existing data/*.js files and creates db.sqlite alongside them.
 
-    import subprocess
-    for p in targets:
-        data_dir = p / "data"
-        if not data_dir.exists():
-            continue
-        meta = _load_meta(data_dir / "meta.js")
-        name = meta.get("project", p.name)
-        console.print(f"\n[bold]{name}[/bold]")
-        # Run node --check on data files
-        for f in data_dir.glob("*.js"):
-            result = subprocess.run(
-                ["node", "--check", str(f)],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                console.print(f"  [red]✗ {f.name} — syntax error[/red]")
+    \b
+    Examples:
+      uv run docsbot migrate /Users/you/MyProject
+      uv run docsbot migrate /Users/you/MyProject/docs --name myproject
+    """
+    import json5  # type: ignore[import]
+    import re as re_
+    from docsbot.db import ProjectDB
+
+    folder_path = Path(folder).expanduser().resolve()
+
+    # Find docs root
+    docs_root: Path | None = None
+    for candidate in (folder_path / "docs", folder_path):
+        if (candidate / "data" / "meta.js").exists():
+            docs_root = candidate
+            break
+    if docs_root is None:
+        console.print(f"[red]No data/meta.js found in '{folder_path}' or its docs/ subfolder.[/red]")
+        raise typer.Exit(1)
+
+    db_path = docs_root / "db.sqlite"
+    if db_path.exists():
+        console.print(f"[yellow]db.sqlite already exists at {db_path}. Delete it first to re-migrate.[/yellow]")
+        raise typer.Exit(1)
+
+    def read_js_var(path: Path, var_name: str):
+        if not path.exists():
+            return None
+        text = path.read_text(encoding="utf-8")
+        m = re_.search(rf'\bwindow\.{re_.escape(var_name)}\s*=\s*', text)
+        if not m:
+            return None
+        start = m.end()
+        depth = 0
+        pos = start
+        in_str = None
+        escape_next = False
+        while pos < len(text):
+            c = text[pos]
+            if escape_next:
+                escape_next = False; pos += 1; continue
+            if c == '\\' and in_str:
+                escape_next = True; pos += 1; continue
+            if in_str:
+                if c == in_str: in_str = None
             else:
-                console.print(f"  [green]✓ {f.name}[/green]")
+                if c in ('"', "'"): in_str = c
+                elif c in ('{', '['): depth += 1
+                elif c in ('}', ']'):
+                    depth -= 1
+                    if depth == 0: pos += 1; break
+            pos += 1
+        try:
+            return json5.loads(text[start:pos])
+        except Exception:
+            return None
+
+    data_dir = docs_root / "data"
+    meta_raw = read_js_var(data_dir / "meta.js", "AUGUR_META") or {}
+    backlog = read_js_var(data_dir / "backlog.js", "AUGUR_BACKLOG") or []
+    buckets = read_js_var(data_dir / "backlog.js", "AUGUR_BACKLOG_BUCKETS") or []
+    research = read_js_var(data_dir / "research.js", "AUGUR_RESEARCH") or []
+    notes_index = read_js_var(data_dir / "notes.js", "AUGUR_NOTES") or []
+
+    # Determine project name
+    name = project_name or meta_raw.get("project", folder_path.name)
+
+    console.print(f"Migrating [bold]{name}[/bold] from {docs_root} ...")
+
+    db = ProjectDB.create(db_path, meta={
+        "project": name,
+        "short": meta_raw.get("short", name),
+        "tagline": meta_raw.get("tagline", ""),
+        "description": meta_raw.get("description", ""),
+        "last_updated": meta_raw.get("last_updated", ""),
+        "doc_number": meta_raw.get("doc_number", ""),
+        "repo_url": meta_raw.get("repo_url", ""),
+        "stale_days": str(meta_raw.get("stale_days", 14)),
+    })
+
+    # Migrate custom buckets
+    if buckets:
+        db._conn.executemany(
+            "INSERT OR REPLACE INTO buckets (p, label, descr) VALUES (?, ?, ?)",
+            [(b.get("p",""), b.get("label",""), b.get("desc", b.get("descr",""))) for b in buckets],
+        )
+        db._conn.commit()
+
+    # Migrate tasks
+    task_count = 0
+    for t in backlog:
+        fields = t.get("fields") or {}
+        db.create_task(
+            task_id=t.get("id"),
+            title=t.get("title", "(no title)"),
+            bucket=t.get("bucket", "P0"),
+            module=t.get("module", ""),
+            size=t.get("size", "M"),
+            effort=t.get("effort", ""),
+            description=fields.get("input", t.get("description", "")),
+            output=fields.get("output", ""),
+            acceptance=fields.get("accept", ""),
+            note=fields.get("note", ""),
+            serves=t.get("serves", []),
+            status=t.get("status", "open"),
+            date_added=t.get("date_added", ""),
+        )
+        task_count += 1
+
+    # Migrate research
+    research_count = 0
+    for r in research:
+        db.create_research(
+            research_id=r.get("id"),
+            title=r.get("title", "(no title)"),
+            codename=r.get("codename", ""),
+            kind=r.get("kind", "ANALYSIS"),
+            module=r.get("module", ""),
+            hypothesis=r.get("hypothesis", ""),
+            body=r.get("body", []),
+            depends_on=r.get("depends_on", []),
+            status=r.get("status", "open"),
+            date_added=r.get("date_added", ""),
+        )
+        research_count += 1
+
+    # Migrate notes (read HTML files if they exist)
+    note_count = 0
+    notes_dir = docs_root / "notes"
+    for n in notes_index:
+        slug = n.get("slug", "")
+        title = n.get("title", "(no title)")
+        date = n.get("date", "")
+        path_rel = n.get("path", "")
+        tags = n.get("tags", [])
+        excerpt = n.get("excerpt", "")
+
+        body_html = ""
+        if path_rel:
+            note_file = docs_root / path_rel
+            if not note_file.exists():
+                note_file = notes_dir / Path(path_rel).name
+            if note_file.exists():
+                raw = note_file.read_text(encoding="utf-8")
+                m = re_.search(r'<body[^>]*>([\s\S]*)</body>', raw, re_.IGNORECASE)
+                body_html = m.group(1).strip() if m else raw
+
+        db.create_note(
+            slug=slug or None,
+            title=title,
+            body_html=body_html,
+            tags=tags,
+            excerpt=excerpt,
+            date=date,
+        )
+        note_count += 1
+
+    console.print(f"  [green]✓[/green] {task_count} tasks")
+    console.print(f"  [green]✓[/green] {research_count} research items")
+    console.print(f"  [green]✓[/green] {note_count} notes")
+    console.print(f"[bold green]Migration complete → {db_path}[/bold green]")
+    console.print(f"\nTo register this project:")
+    console.print(f"  [dim]Open the DocsBot dashboard and enter:[/dim]")
+    console.print(f"  [cyan]{folder_path}[/cyan]")
 
 
 @app.command()
@@ -217,16 +312,17 @@ def mcp() -> None:
     """Run DocsBot as an MCP server (stdio transport).
 
     \b
-    Mount in Claude Code by adding to ~/.claude/settings.json:
-      "mcpServers": {
-        "docsbot": {
-          "command": "uv",
-          "args": ["run", "--project", "/path/to/DocsBot", "docsbot", "mcp"]
+    Mount in Claude Code by adding to ~/.claude/.mcp.json:
+      {
+        "mcpServers": {
+          "docsbot": {
+            "command": "uv",
+            "args": ["run", "--project", "/path/to/DocsBot", "docsbot", "mcp"]
+          }
         }
       }
     """
     from docsbot.mcp_server import run_mcp
-
     run_mcp()
 
 

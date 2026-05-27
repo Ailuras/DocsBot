@@ -118,13 +118,13 @@ def make_handler():
                         n = db.get_note(rest[1])
                         _json(self, n) if n else _json(self, {"error": "Not found"}, 404); return
 
-                if p in ("/", "/index.html"):
+                if _static(self, p):
+                    return
+
+                if not p.startswith("/api/"):
                     ip = DOCSBOT_DIR / "templates" / "index.html"
                     _file(self, ip.read_bytes(), "text/html; charset=utf-8") if ip.exists() \
                         else _json(self, {"error": "Frontend not found"}, 500)
-                    return
-
-                if _static(self, p):
                     return
 
                 self.send_error(404, "Not Found")

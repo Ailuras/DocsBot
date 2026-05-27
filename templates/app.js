@@ -104,9 +104,9 @@ function openNewProjectForm() {
       repo_path: document.getElementById('f-folder').value.trim(),
     };
     try {
-      await api('POST', '/api/projects', payload);
+      const result = await api('POST', '/api/projects', payload);
       hideFormModal();
-      location.reload();
+      location.href = '/' + result.project.id;
     } catch(e) { errEl.textContent = e.message; }
   });
 }
@@ -625,6 +625,8 @@ async function boot() {
 
   document.getElementById('newProjectBtn')?.addEventListener('click', openNewProjectForm);
 
+  const urlPid = window.location.pathname.replace(/^\/+/, '').split('/')[0] || '';
+
   const projects = await api('GET', '/api/projects').then(d=>d.projects||[]).catch(()=>[]);
 
   if (!projects.length) {
@@ -634,13 +636,34 @@ async function boot() {
     return;
   }
 
+  const validIds = projects.map(p => p.id);
   const select = document.getElementById('projectSelect');
   select.innerHTML = '<option value="" disabled>Select project…</option>' +
     projects.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-  pid = projects[0].id;
+
+  pid = (urlPid && validIds.includes(urlPid)) ? urlPid : projects[0].id;
   select.value = pid;
+
+  if (window.location.pathname.replace(/^\/+/, '') !== pid) {
+    history.replaceState({pid}, '', '/' + pid);
+  }
+
   await loadDashboard();
-  select.addEventListener('change', async () => { pid = select.value; await loadDashboard(); });
+
+  select.addEventListener('change', async () => {
+    pid = select.value;
+    history.pushState({pid}, '', '/' + pid);
+    await loadDashboard();
+  });
+
+  window.addEventListener('popstate', async (e) => {
+    const newPid = e.state?.pid || window.location.pathname.replace(/^\/+/, '').split('/')[0] || projects[0].id;
+    if (validIds.includes(newPid)) {
+      pid = newPid;
+      select.value = pid;
+      await loadDashboard();
+    }
+  });
 
   document.getElementById('newTaskBtn')?.addEventListener('click', async () => {
     const buckets = await api('GET', `/api/projects/${encodeURIComponent(pid)}/buckets`).catch(()=>[]);

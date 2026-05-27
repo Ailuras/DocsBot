@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import typer
@@ -16,40 +18,64 @@ app = typer.Typer(help="DocsBot — interactive notebook manager for project doc
 console = Console()
 
 
+def _start_daemon(host: str, port: int) -> None:
+    """Launch the server as a detached background process."""
+    log_dir = default_data_dir() / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "server.log"
+
+    with open(log_path, "a") as log_file:
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "docsbot.cli", "serve",
+             "--host", host, "--port", str(port)],
+            stdout=log_file,
+            stderr=log_file,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+    console.print(f"[green]DocsBot started → http://{host}:{port}[/green]")
+    console.print(f"[dim]pid {proc.pid} · log: {log_path}[/dim]")
+
+
 @app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind address"),
     port: int = typer.Option(8766, help="Port"),
-    daemon: bool = typer.Option(False, help="Run in background"),
-    stop: bool = typer.Option(False, help="Stop the running server"),
+    daemon: bool = typer.Option(False, "-d", "--daemon", help="Run in background (detached)"),
+    stop: bool = typer.Option(False, "--stop", help="Stop the background server"),
+    restart: bool = typer.Option(False, "--restart", help="Restart the background server"),
 ) -> None:
-    """Start or stop the DocsBot web server."""
+    """Start, stop, or restart the DocsBot web server.
+
+    \b
+    Examples:
+      uv run docsbot serve            # foreground — Ctrl-C to quit
+      uv run docsbot serve -d         # start in background
+      uv run docsbot serve --stop     # stop background server
+      uv run docsbot serve --restart  # restart background server
+    """
+    if stop and restart:
+        console.print("[red]--stop and --restart are mutually exclusive.[/red]")
+        raise typer.Exit(1)
+
     if stop:
         stopped = stop_server(port=port)
+        console.print("[yellow]DocsBot stopped.[/yellow]" if stopped
+                      else "[yellow]DocsBot is not running.[/yellow]")
+        raise typer.Exit(0)
+
+    if restart:
+        stopped = stop_server(port=port)
         if stopped:
-            console.print("[green]DocsBot stopped.[/green]")
-        else:
-            console.print("[yellow]DocsBot is not running.[/yellow]")
+            console.print("[yellow]DocsBot stopped.[/yellow]")
+            time.sleep(0.8)  # wait for port to be released
+        _start_daemon(host, port)
         raise typer.Exit(0)
 
     if daemon:
-        pid = os.fork()
-        if pid > 0:
-            console.print(f"[green]DocsBot running in background (pid {pid}).[/green]")
-            raise typer.Exit(0)
-        os.setsid()
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-
-        log_dir = default_data_dir() / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / "server.log"
-        sys.stdout.flush()
-        sys.stderr.flush()
-        with open(log_path, "a+") as f:
-            os.dup2(f.fileno(), sys.stdout.fileno())
-            os.dup2(f.fileno(), sys.stderr.fileno())
+        _start_daemon(host, port)
+        raise typer.Exit(0)
 
     run_server(host=host, port=port)
 

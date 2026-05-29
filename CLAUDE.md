@@ -79,7 +79,7 @@ Both JSON stores resolve their directory through
 Support/FacetX/`) — change the folder name in that one place if ever needed.
 
 Scene/view split is deliberate: project creation/editing lives in the main
-window next to the project list, the menu bar is for quick capture, and
+window next to the project list, the menu bar is for reminder quick capture, and
 **Settings only holds app-wide container configuration**
 ([SettingsScene.swift](app/Sources/FacetX/SettingsScene.swift): choose/create
 containers). Note the `SwiftUI.Settings` scene must be fully qualified because

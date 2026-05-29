@@ -167,6 +167,12 @@ class ProjectDB:
     def close(self) -> None:
         self._conn.close()
 
+    def __enter__(self) -> "ProjectDB":
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        self.close()
+
     # ── Meta ──────────────────────────────────────────────────────────────────
 
     def get_meta(self) -> dict[str, str]:

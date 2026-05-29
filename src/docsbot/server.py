@@ -85,6 +85,7 @@ def make_handler():
             parsed = urllib.parse.urlparse(self.path)
             p = parsed.path
             qs = urllib.parse.parse_qs(parsed.query)
+            db: ProjectDB | None = None
             try:
                 if p == "/api/projects":
                     _json(self, {"projects": list_projects()})
@@ -137,9 +138,13 @@ def make_handler():
                 self.send_error(404, "Not Found")
             except Exception as e:
                 _json(self, {"error": str(e)}, 500)
+            finally:
+                if db is not None:
+                    db.close()
 
         def do_POST(self) -> None:
             p = urllib.parse.urlparse(self.path).path
+            db: ProjectDB | None = None
             try:
                 if p == "/api/projects":
                     body = _body(self)
@@ -177,9 +182,13 @@ def make_handler():
                 self.send_error(404, "Not Found")
             except Exception as e:
                 _json(self, {"error": str(e)}, 500)
+            finally:
+                if db is not None:
+                    db.close()
 
         def do_PUT(self) -> None:
             p = urllib.parse.urlparse(self.path).path
+            db: ProjectDB | None = None
             try:
                 if p.startswith("/api/projects/"):
                     pid, rest = _parse_project_path(p)
@@ -204,9 +213,13 @@ def make_handler():
                 self.send_error(404, "Not Found")
             except Exception as e:
                 _json(self, {"error": str(e)}, 500)
+            finally:
+                if db is not None:
+                    db.close()
 
         def do_DELETE(self) -> None:
             p = urllib.parse.urlparse(self.path).path
+            db: ProjectDB | None = None
             try:
                 if p.startswith("/api/projects/"):
                     pid, rest = _parse_project_path(p)
@@ -228,6 +241,9 @@ def make_handler():
                 self.send_error(404, "Not Found")
             except Exception as e:
                 _json(self, {"error": str(e)}, 500)
+            finally:
+                if db is not None:
+                    db.close()
 
     return H
 

@@ -70,7 +70,8 @@ def list_projects() -> list[dict]:
         db = ProjectDB.open(db_path)
         if not db:
             continue
-        meta = db.get_meta()
+        with db:
+            meta = db.get_meta()
         result.append({
             "id": entry.name,
             "name": meta.get("project", entry.name),

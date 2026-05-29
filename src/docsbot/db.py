@@ -86,19 +86,39 @@ _DEFAULT_BUCKETS = [
     ("P5", "NOTES",       "Documentation and maintenance."),
 ]
 
+# Columns a client may update, per table. Field names in UPDATE statements are
+# interpolated into SQL, so they must be validated against these whitelists to
+# prevent SQL injection via attacker-controlled JSON keys.
+_TASK_COLUMNS = {
+    "bucket", "module", "title", "size", "effort", "description", "output",
+    "acceptance", "note", "serves", "status", "date_added", "tags", "priority",
+}
+_RESEARCH_COLUMNS = {
+    "codename", "title", "kind", "module", "hypothesis", "body", "depends_on",
+    "status", "date_added",
+}
+_NOTE_COLUMNS = {"title", "date", "body_html", "tags", "excerpt"}
+_WEEK_COLUMNS = {"date_start", "goal_title", "goal_body"}
+_FEATURE_COLUMNS = {"week_id", "title", "description", "status", "sort_order", "date_added"}
+
 
 def _migrate(conn: sqlite3.Connection) -> None:
-    """Apply incremental schema changes to existing databases."""
-    existing_cols = {
-        row[1]
-        for row in conn.execute("PRAGMA table_info(tasks)").fetchall()
-    }
-    for col, typedef in [("tags", "TEXT NOT NULL DEFAULT '[]'"),
-                         ("priority", "TEXT NOT NULL DEFAULT 'medium'")]:
-        if col not in existing_cols:
-            conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} {typedef}")
-    conn.commit()
-    # Create new tables idempotently
+    """Apply incremental schema changes to existing databases.
+
+    Safe to run before the base schema exists (e.g. on a brand-new DB):
+    column migrations are skipped when the target table is not present yet,
+    and create() applies the full schema afterwards.
+    """
+    table_info = conn.execute("PRAGMA table_info(tasks)").fetchall()
+    if table_info:
+        existing_cols = {row[1] for row in table_info}
+        for col, typedef in [("tags", "TEXT NOT NULL DEFAULT '[]'"),
+                             ("priority", "TEXT NOT NULL DEFAULT 'medium'")]:
+            if col not in existing_cols:
+                conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} {typedef}")
+        conn.commit()
+    # Add tables introduced after the initial release. Idempotent, and needed
+    # when opening an older DB (open() does not re-run the full base schema).
     conn.executescript("""
     CREATE TABLE IF NOT EXISTS weeks (
         week_id    TEXT PRIMARY KEY,
@@ -256,6 +276,8 @@ class ProjectDB:
         _json_fields = {"serves", "tags"}
         sets, params = [], []
         for k, v in kwargs.items():
+            if k not in _TASK_COLUMNS:
+                continue
             if k in _json_fields and not isinstance(v, str):
                 v = json.dumps(v)
             sets.append(f"{k} = ?")
@@ -332,6 +354,8 @@ class ProjectDB:
         _json_fields = {"body", "depends_on"}
         sets, params = [], []
         for k, v in kwargs.items():
+            if k not in _RESEARCH_COLUMNS:
+                continue
             if k in _json_fields and not isinstance(v, str):
                 v = json.dumps(v)
             sets.append(f"{k} = ?")
@@ -402,6 +426,8 @@ class ProjectDB:
         _json_fields = {"tags"}
         sets, params = [], []
         for k, v in kwargs.items():
+            if k not in _NOTE_COLUMNS:
+                continue
             if k in _json_fields and not isinstance(v, str):
                 v = json.dumps(v)
             sets.append(f"{k} = ?")
@@ -432,6 +458,7 @@ class ProjectDB:
         }
 
     def upsert_week(self, week_id: str, **kwargs: Any) -> dict:
+        kwargs = {k: v for k, v in kwargs.items() if k in _WEEK_COLUMNS}
         existing = self._conn.execute(
             "SELECT week_id FROM weeks WHERE week_id = ?", (week_id,)
         ).fetchone()
@@ -508,6 +535,8 @@ class ProjectDB:
             return None
         sets, params = [], []
         for k, v in kwargs.items():
+            if k not in _FEATURE_COLUMNS:
+                continue
             sets.append(f"{k} = ?")
             params.append(v)
         if not sets:

@@ -66,7 +66,12 @@ struct QuickCaptureView: View {
                 Button {
                     NSApp.activate(ignoringOtherApps: true)
                     // Bring the main window forward.
-                    for w in NSApp.windows where w.canBecomeMain { w.makeKeyAndOrderFront(nil) }
+                    let windows = NSApp.windows.filter { $0.canBecomeMain }
+                    if windows.isEmpty {
+                        NSWorkspace.shared.open(Bundle.main.bundleURL)
+                    } else {
+                        for w in windows { w.makeKeyAndOrderFront(nil) }
+                    }
                 } label: {
                     HStack(spacing: 6) {
                         Image(nsImage: MenuBarController.templateImage())

@@ -6,7 +6,9 @@ function esc(s) {
 
 function inline(s) {
   if (!s) return '';
-  return String(s)
+  // Escape first so user content cannot inject markup, then apply the
+  // limited **bold** / `code` markdown on the escaped string.
+  return esc(s)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/`([^`\n]+)`/g, '<code>$1</code>');
 }
@@ -14,10 +16,32 @@ function inline(s) {
 function textToHtml(text) {
   if (/<[a-zA-Z]/.test(text)) return text;
   return text.split(/\n{2,}/).filter(p=>p.trim()).map(p=>`<p>${
-    p.trim().replace(/\n/g,'<br>')
+    esc(p.trim()).replace(/\n/g,'<br>')
       .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
       .replace(/`([^`]+)`/g,'<code>$1</code>')
   }</p>`).join('\n');
+}
+
+// Notes legitimately store HTML (including migrated documents), so we cannot
+// simply escape body_html. Scrub the active vectors instead: drop <script>/
+// <style>/<iframe>/<object> elements, inline event handlers, and
+// javascript:/data: URLs, parsing in an inert document that does not execute.
+function sanitizeHtml(html) {
+  const doc = new DOMParser().parseFromString(String(html ?? ''), 'text/html');
+  doc.querySelectorAll('script, style, iframe, object, embed, link, meta, base, form')
+    .forEach(el => el.remove());
+  doc.querySelectorAll('*').forEach(el => {
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase();
+      const val = attr.value.replace(/\s+/g, '').toLowerCase();
+      if (name.startsWith('on')) el.removeAttribute(attr.name);
+      else if ((name === 'href' || name === 'src' || name === 'xlink:href')
+               && (val.startsWith('javascript:') || val.startsWith('data:'))) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+  return doc.body.innerHTML;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -770,7 +794,7 @@ function openNoteModal(note) {
       <div class="modal-title">${esc(note.title)}</div>
       <div style="font-size:0.8rem;color:var(--text-muted)">${esc(note.date)}${(note.tags||[]).length ? ' · '+note.tags.map(t=>esc(t)).join(', ') : ''}</div>
     </div>
-    <div class="modal-html-content">${note.body_html || '<p style="color:var(--text-muted)">Empty note</p>'}</div>
+    <div class="modal-html-content">${note.body_html ? sanitizeHtml(note.body_html) : '<p style="color:var(--text-muted)">Empty note</p>'}</div>
     <div class="modal-edit-row">
       <button class="modal-edit-btn" id="modalEditNote">Edit</button>
     </div>

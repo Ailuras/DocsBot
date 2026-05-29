@@ -1,23 +1,12 @@
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-*.egg
-.pytest_cache/
-.ruff_cache/
-*.log
-server.pid
-gateway.pid
-
-# uv
-.venv/
-
-# User data — not tracked in repo
-projects/
-external_projects.json
+# Swift / SwiftPM
+app/.build/
+app/DocsBot.app/
+.swiftpm/
+*.xcodeproj
 
 # EventKit probe build artifacts
 experiments/eventkit-probe/EventKitProbe.app/
 experiments/eventkit-probe/probe
-app/.build/
-app/DocsBot.app/
+
+# macOS
+.DS_Store

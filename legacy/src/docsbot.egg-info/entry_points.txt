@@ -1,0 +1,2 @@
+[console_scripts]
+docsbot = docsbot.cli:app

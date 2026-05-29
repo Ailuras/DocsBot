@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/docsbot/__init__.py
+src/docsbot/cli.py
+src/docsbot/config.py
+src/docsbot/mcp_server.py
+src/docsbot/server.py
+src/docsbot.egg-info/PKG-INFO
+src/docsbot.egg-info/SOURCES.txt
+src/docsbot.egg-info/dependency_links.txt
+src/docsbot.egg-info/entry_points.txt
+src/docsbot.egg-info/requires.txt
+src/docsbot.egg-info/top_level.txt

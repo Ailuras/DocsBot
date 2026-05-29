@@ -16,3 +16,7 @@ experiments/eventkit-probe/probe
 
 # Icon build working dir
 app/DocsBot.iconset/
+
+# dmg packaging
+app/*.dmg
+app/dmg-staging/

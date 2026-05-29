@@ -26,6 +26,23 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
 
     @Published var remindersAuthorized = false
     @Published var calendarAuthorized = false
+    /// Bumped whenever EventKit's data changes (here, in Apple's apps, or via
+    /// iCloud). Views observe this to refresh live, Fantastical-style.
+    @Published var changeToken = 0
+
+    private var observer: NSObjectProtocol?
+
+    init() {
+        observer = NotificationCenter.default.addObserver(
+            forName: .EKEventStoreChanged, object: store, queue: .main
+        ) { [weak self] _ in
+            self?.changeToken &+= 1
+        }
+    }
+
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+    }
 
     func requestAccess() async {
         let reminders = (try? await store.requestFullAccessToReminders()) ?? false

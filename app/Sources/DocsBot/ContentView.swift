@@ -107,6 +107,7 @@ struct ProjectDetailView: View {
             CreateItemView(project: project) { Task { await reload() } }
         }
         .task(id: project.id) { await reload() }
+        .onChange(of: ek.changeToken) { Task { await reload() } }
     }
 
     private func reload() async {

@@ -9,8 +9,7 @@ the user's existing Apple Calendar and Reminders. FacetX stores no item content
 of its own — items live in EventKit (synced via iCloud, visible in Apple's apps).
 It is a *lens* that gathers the subset of calendar/reminder items belonging to a
 project and presents them in one panel (each project = a *facet* of the same
-data). The app was formerly named DocsBot; the retired Python+web v1 lives only
-in git history.
+data).
 
 All Swift source lives under [app/Sources/FacetX/](app/Sources/FacetX/).
 

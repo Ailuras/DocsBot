@@ -1,4 +1,4 @@
-# FacetX — Design (formerly DocsBot v2)
+# FacetX — Design
 
 **Status:** v0.1 — all seven build phases implemented; a working pre-release
 demo. Supersedes the Python+SQLite+web version (now frozen, archived in git

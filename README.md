@@ -37,8 +37,7 @@ access by macOS. See [CLAUDE.md](CLAUDE.md) for architecture notes.
 ## Status
 
 Native SwiftUI app (v0.1, pre-release demo). See **[REBUILD.md](REBUILD.md)** for
-the design. Formerly named DocsBot; the retired Python/web v1 lives in git
-history.
+the design.
 
 ## Layout
 

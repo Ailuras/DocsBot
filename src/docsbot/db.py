@@ -153,6 +153,11 @@ def _today() -> str:
     return datetime.date.today().isoformat()
 
 
+def _now() -> str:
+    """Second-precision local timestamp for updated_at bookkeeping."""
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
 class ProjectDB:
     """Thin wrapper around a project's SQLite database."""
 
@@ -291,7 +296,7 @@ class ProjectDB:
         if not sets:
             return self.get_task(task_id)
         sets.append("updated_at = ?")
-        params.extend([_today(), task_id])
+        params.extend([_now(), task_id])
         self._conn.execute(
             f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params
         )
@@ -369,7 +374,7 @@ class ProjectDB:
         if not sets:
             return self.get_research(rid)
         sets.append("updated_at = ?")
-        params.extend([_today(), rid])
+        params.extend([_now(), rid])
         self._conn.execute(
             f"UPDATE research SET {', '.join(sets)} WHERE id = ?", params
         )

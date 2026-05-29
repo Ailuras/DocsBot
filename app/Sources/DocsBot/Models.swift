@@ -68,6 +68,30 @@ final class ProjectStore: ObservableObject {
         save()
     }
 
+    // ── Week goals ────────────────────────────────────────────────────────────
+
+    func weekGoal(projectID: Project.ID, weekId: String) -> WeekGoal? {
+        projects.first { $0.id == projectID }?
+            .weekGoals.first { $0.weekId == weekId }
+    }
+
+    /// Create or update the goal for a project's week. Empty title removes it.
+    func setWeekGoal(projectID: Project.ID, weekId: String, title: String, body: String) {
+        guard let p = projects.firstIndex(where: { $0.id == projectID }) else { return }
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        if let g = projects[p].weekGoals.firstIndex(where: { $0.weekId == weekId }) {
+            if trimmed.isEmpty {
+                projects[p].weekGoals.remove(at: g)
+            } else {
+                projects[p].weekGoals[g].title = trimmed
+                projects[p].weekGoals[g].body = body
+            }
+        } else if !trimmed.isEmpty {
+            projects[p].weekGoals.append(WeekGoal(weekId: weekId, title: trimmed, body: body))
+        }
+        save()
+    }
+
     // ── Persistence ──────────────────────────────────────────────────────────
 
     private func load() {

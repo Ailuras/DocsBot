@@ -67,6 +67,12 @@ struct ProjectDetailView: View {
     @EnvironmentObject private var settings: Settings
     let project: Project
 
+    enum Mode: String, CaseIterable, Identifiable {
+        case all = "All", week = "Week"
+        var id: String { rawValue }
+    }
+
+    @State private var mode: Mode = .all
     @State private var items: [ProjectItem] = []
     @State private var loading = false
     @State private var showCreate = false
@@ -79,31 +85,20 @@ struct ProjectDetailView: View {
 
     var body: some View {
         Group {
-            if loading {
-                ProgressView().controlSize(.large)
-            } else if items.isEmpty {
-                ContentUnavailableView("No items",
-                    systemImage: "tray",
-                    description: Text("No calendar or reminder items start with “\(project.prefix):”."))
-            } else {
-                List {
-                    ForEach(grouped, id: \.zone) { group in
-                        Section(group.zone) {
-                            ForEach(group.items) { item in
-                                ItemRow(item: item) { completed in
-                                    Task {
-                                        await ek.setReminderCompleted(id: item.id, completed: completed)
-                                        await reload()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            switch mode {
+            case .all:  allItemsView
+            case .week: WeekView(project: project)
             }
         }
         .navigationTitle(project.name)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("", selection: $mode) {
+                    ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 160)
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { showCreate = true } label: { Image(systemName: "plus") }
                     .help("Add an item to this project")
@@ -116,6 +111,31 @@ struct ProjectDetailView: View {
         }
         .task(id: project.id) { await reload() }
         .onChange(of: ek.changeToken) { Task { await reload() } }
+    }
+
+    @ViewBuilder private var allItemsView: some View {
+        if loading {
+            ProgressView().controlSize(.large)
+        } else if items.isEmpty {
+            ContentUnavailableView("No items",
+                systemImage: "tray",
+                description: Text("No calendar or reminder items start with “\(project.prefix):”."))
+        } else {
+            List {
+                ForEach(grouped, id: \.zone) { group in
+                    Section(group.zone) {
+                        ForEach(group.items) { item in
+                            ItemRow(item: item) { completed in
+                                Task {
+                                    await ek.setReminderCompleted(id: item.id, completed: completed)
+                                    await reload()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func reload() async {

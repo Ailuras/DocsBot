@@ -1,7 +1,12 @@
 # DocsBot v2 — Rebuild Design
 
-**Status:** design / not yet implemented. Supersedes the Python+SQLite+web
-version (now frozen, archived in git history).
+**Status:** v0.1 — all seven build phases implemented; a working pre-release
+demo. Supersedes the Python+SQLite+web version (now frozen, archived in git
+history). Implemented: project declaration/editing, prefix-based aggregation,
+grouped item view, complete/create/delete, per-project week view + goal, menu
+bar quick-capture, live refresh on EventKit changes, container selection +
+creation, and a standard Settings window (config) separate from the use-only
+main window and menu bar.
 
 ## 1. What DocsBot v2 is
 

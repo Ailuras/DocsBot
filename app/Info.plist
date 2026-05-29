@@ -6,7 +6,7 @@
   <key>CFBundleDisplayName</key><string>DocsBot</string>
   <key>CFBundleIdentifier</key><string>com.docsbot.app</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>2.0</string>
+  <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>CFBundleExecutable</key><string>DocsBot</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>

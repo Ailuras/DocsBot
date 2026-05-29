@@ -36,8 +36,26 @@ enum SelfTest {
         let ek = EventKitService()
         await ek.requestAccess()
         log += "reminders auth: \(ek.remindersAuthorized), calendar auth: \(ek.calendarAuthorized)\n"
+
+        if ProcessInfo.processInfo.environment["DOCSBOT_SELFTEST_CLEANUP"] == "1" {
+            let n = await ek.deleteRemindersContaining("selftest-")
+            log += "cleanup: removed \(n) selftest reminders\n"
+            try? log.write(toFile: out, atomically: true, encoding: .utf8)
+            return
+        }
         let names = await ek.discoverProjectNames()
         log += "discovered project names (\(names.count)): \(names.joined(separator: ", "))\n"
+        // Optional create round-trip: DOCSBOT_SELFTEST_CREATE=1 creates a
+        // reminder in the first available list and checks it comes back.
+        if ProcessInfo.processInfo.environment["DOCSBOT_SELFTEST_CREATE"] == "1" {
+            let list = ek.reminderListNames().first ?? ""
+            let marker = "selftest-\(Int(Date().timeIntervalSince1970))"
+            let ok = ek.createReminder(project: project, content: marker,
+                                       listName: list, dueDate: nil)
+            let after = await ek.items(forProject: project)
+            let found = after.contains { $0.content == marker }
+            log += "create round-trip: saved=\(ok) into '\(list)', found-after=\(found)\n"
+        }
         let items = await ek.items(forProject: project)
         log += "items for '\(project)' (\(items.count)):\n"
         for i in items {

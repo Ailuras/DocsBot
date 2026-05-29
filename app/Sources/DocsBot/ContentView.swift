@@ -61,6 +61,7 @@ struct ProjectDetailView: View {
 
     @State private var items: [ProjectItem] = []
     @State private var loading = false
+    @State private var showCreate = false
 
     private var grouped: [(zone: String, items: [ProjectItem])] {
         Dictionary(grouping: items, by: \.containerName)
@@ -95,9 +96,15 @@ struct ProjectDetailView: View {
         }
         .navigationTitle(project.name)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { showCreate = true } label: { Image(systemName: "plus") }
+                    .help("Add an item to this project")
                 Button { Task { await reload() } } label: { Image(systemName: "arrow.clockwise") }
+                    .help("Refresh")
             }
+        }
+        .sheet(isPresented: $showCreate) {
+            CreateItemView(project: project) { Task { await reload() } }
         }
         .task(id: project.id) { await reload() }
     }

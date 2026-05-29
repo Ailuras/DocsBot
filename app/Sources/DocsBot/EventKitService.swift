@@ -135,6 +135,18 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
         return store.events(matching: pred)
     }
 
+    // ── Containers (functional zones) ────────────────────────────────────────
+
+    /// Names of reminder lists available to write into (e.g. 科研待办).
+    func reminderListNames() -> [String] {
+        store.calendars(for: .reminder).map(\.title).sorted()
+    }
+
+    /// Names of calendars available to write into (= functional zones).
+    func calendarNames() -> [String] {
+        store.calendars(for: .event).map(\.title).sorted()
+    }
+
     // ── Write-back ───────────────────────────────────────────────────────────
 
     /// Toggle a reminder's completion by its identifier.
@@ -142,5 +154,58 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
         guard let item = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
         item.isCompleted = completed
         try? store.save(item, commit: true)
+    }
+
+    /// Create a reminder titled `Project: content` in the named list.
+    /// `dueDate` is optional. Returns true on success.
+    @discardableResult
+    func createReminder(project: String, content: String,
+                        listName: String, dueDate: Date?) -> Bool {
+        guard let list = store.calendars(for: .reminder)
+            .first(where: { $0.title == listName }) ?? store.defaultCalendarForNewReminders()
+        else { return false }
+        let r = EKReminder(eventStore: store)
+        r.title = ProjectPrefix.makeTitle(project: project, content: content)
+        r.calendar = list
+        if let due = dueDate {
+            r.dueDateComponents = Calendar.current.dateComponents(
+                [.year, .month, .day], from: due)
+        }
+        do { try store.save(r, commit: true); return true } catch { return false }
+    }
+
+    /// Remove any reminders whose title contains `marker` (used to clean up
+    /// self-test artifacts). Returns the count removed.
+    @discardableResult
+    func deleteRemindersContaining(_ marker: String) async -> Int {
+        let pred = store.predicateForReminders(in: store.calendars(for: .reminder))
+        let storeRef = store
+        return await withCheckedContinuation { cont in
+            storeRef.fetchReminders(matching: pred) { rems in
+                var removed = 0
+                for r in rems ?? [] where (r.title ?? "").contains(marker) {
+                    if (try? storeRef.remove(r, commit: false)) != nil { removed += 1 }
+                }
+                try? storeRef.commit()
+                cont.resume(returning: removed)
+            }
+        }
+    }
+
+    /// Create a calendar event titled `Project: content` in the named calendar
+    /// (= functional zone). Defaults to a 1-hour block at `startDate`.
+    @discardableResult
+    func createEvent(project: String, content: String,
+                     calendarName: String, startDate: Date,
+                     durationMinutes: Int = 60) -> Bool {
+        guard let cal = store.calendars(for: .event)
+            .first(where: { $0.title == calendarName })
+        else { return false }
+        let e = EKEvent(eventStore: store)
+        e.title = ProjectPrefix.makeTitle(project: project, content: content)
+        e.calendar = cal
+        e.startDate = startDate
+        e.endDate = Calendar.current.date(byAdding: .minute, value: durationMinutes, to: startDate)
+        do { try store.save(e, span: .thisEvent, commit: true); return true } catch { return false }
     }
 }

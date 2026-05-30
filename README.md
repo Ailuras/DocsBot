@@ -34,12 +34,23 @@ open ./FacetX.app
 The app must run as a bundled, signed `.app` — a bare binary is denied EventKit
 access by macOS. See [CLAUDE.md](CLAUDE.md) for architecture notes.
 
+## Checks
+
+```bash
+cd app
+swift build -c debug
+swift run FacetXCoreChecks
+```
+
 ## Status
 
-Native SwiftUI app (v0.1, pre-release demo). See **[REBUILD.md](REBUILD.md)** for
-the design.
+Native SwiftUI app (v0.2, local beta). The app now includes a polished
+three-pane workspace, modern detail and settings surfaces, menu bar quick
+capture, project-specific week planning, completed-item controls, and lightweight
+core checks. See **[REBUILD.md](REBUILD.md)** for the design.
 
 ## Layout
 
 - `REBUILD.md` — design / blueprint
-- `app/` — the SwiftUI app (sources, build scripts)
+- `CLAUDE.md` — repository guide for future coding agents
+- `app/` — the SwiftUI app (sources, checks, build scripts)

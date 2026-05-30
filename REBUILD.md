@@ -1,11 +1,12 @@
 # FacetX — Design
 
-**Status:** v0.1 — all seven build phases implemented; a working pre-release
-demo. Supersedes the Python+SQLite+web version (now frozen, archived in git
-history). Implemented: project creation/editing in the main window, prefix-based aggregation,
-grouped item view, complete/create/delete, per-project week view + goal, menu
-bar quick-capture, live refresh on EventKit changes, container selection +
-creation, and a standard Settings window for app-wide container configuration.
+**Status:** v0.2 — local beta. Supersedes the Python+SQLite+web version (now
+frozen in git history). Implemented: project creation/editing in the main
+window, prefix-based aggregation, grouped item view, complete/create/delete,
+modern detail editing, completed-item filtering with soft list transitions,
+per-project week view + goal, menu bar quick-capture, live refresh on EventKit
+changes, container selection + creation, and a standard Settings window for
+app-wide container configuration.
 
 ## 1. What FacetX is
 
@@ -38,11 +39,13 @@ EventKit (Calendar + Reminders)  ← single source of truth for item content
         │
 Native Swift app (SwiftUI)
   ├─ EventKit service: auth, fetch, filter-by-prefix, write-back
-  ├─ Project store (small, project-side metadata only)
+  ├─ Project store (JSON, project-side metadata only)
+  ├─ App settings store (JSON, enabled containers + defaults)
+  ├─ FacetXCore: reusable prefix and ISO week logic
   ├─ Main window: project list + project management → project detail
   └─ Menu bar item: status, quick open, quick-add to a project
         │
-Project store (SwiftData or small SQLite)
+Project store (JSON under Application Support/FacetX)
   - saved projects (name, prefix, display meta, default reminder/calendar containers)
   - week goals and other project-owned info EventKit can't hold
   - NO item content (that's EventKit's job) → no two-source sync conflict
@@ -66,6 +69,7 @@ Project
   calendarName  String?        // where new project events are saved
   createdAt     Date
   archived      Bool
+  itemOrder      [String]?      // local presentation order for project items
 
 WeekGoal
   id            UUID
@@ -98,11 +102,13 @@ matched by `title.hasPrefix("\(prefix):")` (colon-tolerant).
 3. **Project store**: create/list/archive projects, remember save containers,
    and persist week goals.
 4. **Main window**: project list → detail showing that project's reminders
-   (grouped by list) and calendar events (grouped by calendar = functional zone).
+   (grouped by list) and calendar events (grouped by calendar = functional zone),
+   with a native inspector-style detail pane.
 5. **Write-back**: mark reminder complete, create a reminder/event already
    prefixed with the project name.
 6. **Menu bar**: status + quick-add into a chosen project.
-7. **Polish**: week view, filtering, empty states.
+7. **Polish**: week view, filtering, empty states, settings redesign, completed
+   item controls, and soft list transitions.
 
 ## 7. Out of scope (for now)
 

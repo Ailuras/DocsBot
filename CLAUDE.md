@@ -11,7 +11,9 @@ It is a *lens* that gathers the subset of calendar/reminder items belonging to a
 project and presents them in one panel (each project = a *facet* of the same
 data).
 
-All Swift source lives under [app/Sources/FacetX/](app/Sources/FacetX/).
+App Swift source lives under [app/Sources/FacetX/](app/Sources/FacetX/).
+Shared pure logic lives under [app/Sources/FacetXCore/](app/Sources/FacetXCore/),
+with lightweight executable checks in [app/Checks/FacetXCoreChecks/](app/Checks/FacetXCoreChecks/).
 
 ## Build & run
 
@@ -29,7 +31,13 @@ open ./FacetX.app
 `build-app.sh` runs `swift build`, wraps the binary into `FacetX.app` with
 [Info.plist](app/Info.plist) (EventKit usage strings) +
 [FacetX.entitlements](app/FacetX.entitlements), then ad-hoc code-signs it.
-There is no test target.
+For a quick non-UI regression pass, run:
+
+```bash
+cd app
+swift build -c debug
+swift run FacetXCoreChecks
+```
 
 EventKit permission state is granted per-bundle by macOS (TCC). If you change the
 bundle identifier or signing, you may need to re-grant Calendar/Reminders access
@@ -40,7 +48,7 @@ bundle identifier or signing, you may need to re-grant Calendar/Reminders access
 
 An item belongs to a project when its **title starts with `ProjectName:`**. This
 is the only association mechanism because EventKit exposes no tag API. All of
-[ProjectPrefix.swift](app/Sources/FacetX/ProjectPrefix.swift) encodes it:
+[ProjectPrefix.swift](app/Sources/FacetXCore/ProjectPrefix.swift) encodes it:
 
 - **Colon-tolerant on read, ASCII on write.** Accept both ASCII `:` and fullwidth
   `：` when parsing (real calendar data uses `：`); always compose new titles with
@@ -68,8 +76,9 @@ quick-capture, and the standard `SwiftUI.Settings` window):
   `@MainActor`; persists saved projects + week goals as JSON under Application
   Support (`FacetX/projects.json`). Holds *only* project-side metadata EventKit
   can't represent (name, claimed prefix, tagline, default reminder/calendar
-  save locations, week goals). **No item content is stored here** — that's what
-  avoids any two-source sync problem.
+  save locations, week goals, and optional local item presentation order).
+  **No item content is stored here** — that's what avoids any two-source sync
+  problem.
 - **[AppSettings.swift](app/Sources/FacetX/AppSettings.swift)** — `@MainActor`;
   persists which containers are enabled plus the default reminder/calendar save
   locations for new projects (`FacetX/settings.json`).
@@ -126,7 +135,7 @@ first removal so unchecking one doesn't re-enable everything.
   Settings owns only the defaults used when a project is created or when older
   project data has no saved container yet.
 - Week identity is ISO-8601, Monday-start, formatted `"2026-W22"` — use
-  [ISOWeek.swift](app/Sources/FacetX/ISOWeek.swift), don't reimplement week math.
+  [ISOWeek.swift](app/Sources/FacetXCore/ISOWeek.swift), don't reimplement week math.
 - JSON stores write atomically with `[.prettyPrinted, .sortedKeys]`.
 - Keep the dependency surface at zero: pure SwiftPM + system frameworks only
   (this keeps the Command Line Tools build working — no Xcode project required).

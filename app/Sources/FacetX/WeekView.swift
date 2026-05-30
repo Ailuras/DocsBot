@@ -18,6 +18,10 @@ struct WeekView: View {
     @State private var goalBody = ""
     @State private var editingItem: ProjectItem?
 
+    private var listAnimation: Animation {
+        .spring(response: 0.34, dampingFraction: 0.88)
+    }
+
     private var weekItems: [ProjectItem] {
         allItems.filter { item in
             guard let d = item.date else { return false }
@@ -166,12 +170,17 @@ struct WeekView: View {
                 .onTapGesture(count: 2) {
                     editingItem = item
                 }
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .top)),
+                    removal: .opacity.combined(with: .scale(scale: 0.98))
+                ))
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .animation(listAnimation, value: weekItems.map { "\($0.id)-\($0.isCompleted)" })
         }
     }
 
@@ -183,9 +192,16 @@ struct WeekView: View {
 
     private func reload() async {
         loading = allItems.isEmpty
-        allItems = await ek.items(forProject: project.prefix,
-                                  enabledReminderLists: settings.enabledReminderListNames,
-                                  enabledCalendars: settings.enabledCalendarNames)
+        let fetched = await ek.items(forProject: project.prefix,
+                                     enabledReminderLists: settings.enabledReminderListNames,
+                                     enabledCalendars: settings.enabledCalendarNames)
+        if allItems.isEmpty {
+            allItems = fetched
+        } else {
+            withAnimation(listAnimation) {
+                allItems = fetched
+            }
+        }
         loading = false
     }
 }

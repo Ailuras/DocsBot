@@ -182,6 +182,10 @@ struct ProjectDetailView: View {
     @State private var selectedDetailItem: ProjectItem? = nil
     @State private var showCompleted = true
 
+    private var listAnimation: Animation {
+        .spring(response: 0.34, dampingFraction: 0.88)
+    }
+
     private var visibleItems: [ProjectItem] {
         showCompleted ? items : items.filter { !$0.isCompleted }
     }
@@ -231,7 +235,9 @@ struct ProjectDetailView: View {
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    showCompleted.toggle()
+                    withAnimation(listAnimation) {
+                        showCompleted.toggle()
+                    }
                 } label: {
                     Image(systemName: showCompleted ? "checkmark.circle.fill" : "checkmark.circle")
                 }
@@ -252,7 +258,9 @@ struct ProjectDetailView: View {
         .onChange(of: ek.changeToken) { Task { await reload() } }
         .onChange(of: showCompleted) {
             if !showCompleted, selectedDetailItem?.isCompleted == true {
-                selectedDetailItem = nil
+                withAnimation(listAnimation) {
+                    selectedDetailItem = nil
+                }
             }
         }
     }
@@ -288,6 +296,10 @@ struct ProjectDetailView: View {
                     Section {
                         ForEach(group.items) { item in
                             projectItemRow(item)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .top)),
+                                    removal: .opacity.combined(with: .scale(scale: 0.98))
+                                ))
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                                 .listRowInsets(EdgeInsets(top: 3, leading: 14, bottom: 3, trailing: 14))
@@ -319,6 +331,7 @@ struct ProjectDetailView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .animation(listAnimation, value: visibleItems.map { "\($0.id)-\($0.isCompleted)" })
     }
 
     private var projectHeader: some View {
@@ -518,9 +531,20 @@ struct ProjectDetailView: View {
                                      enabledReminderLists: settings.enabledReminderListNames,
                                      enabledCalendars: settings.enabledCalendarNames)
         store.pruneItemOrder(projectID: project.id, keeping: Set(fetched.map(\.id)))
-        items = sortItems(fetched)
-        if let selectedId = selectedDetailItem?.id {
-            selectedDetailItem = visibleItems.first { $0.id == selectedId }
+        let sortedItems = sortItems(fetched)
+        let selectedId = selectedDetailItem?.id
+        if items.isEmpty {
+            items = sortedItems
+            if let selectedId {
+                selectedDetailItem = visibleItems.first { $0.id == selectedId }
+            }
+        } else {
+            withAnimation(listAnimation) {
+                items = sortedItems
+                if let selectedId {
+                    selectedDetailItem = visibleItems.first { $0.id == selectedId }
+                }
+            }
         }
         loading = false
     }

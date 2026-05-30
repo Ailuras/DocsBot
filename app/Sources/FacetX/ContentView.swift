@@ -137,6 +137,8 @@ struct ProjectDetailView: View {
     @State private var editingItem: ProjectItem?
     @State private var inlineEditingID: String?
     @State private var inlineEditingText: String = ""
+    @State private var inlineEditingNotesID: String?
+    @State private var inlineEditingNotesText: String = ""
 
     private var grouped: [(zone: String, items: [ProjectItem])] {
         Dictionary(grouping: items, by: \.containerName)
@@ -210,6 +212,17 @@ struct ProjectDetailView: View {
                                     },
                                     onInlineCancel: {
                                         cancelInlineEdit(for: item)
+                                    },
+                                    inlineEditingNotesText: $inlineEditingNotesText,
+                                    isInlineEditingNotes: item.id == inlineEditingNotesID,
+                                    onInlineNotesCommit: {
+                                        commitInlineNotesEdit(for: item)
+                                    },
+                                    onInlineNotesCancel: {
+                                        cancelInlineNotesEdit(for: item)
+                                    },
+                                    onStartNotesEdit: {
+                                        startInlineNotesEdit(for: item)
                                     }
                                 )
                                 .contextMenu {
@@ -279,6 +292,32 @@ struct ProjectDetailView: View {
         Task { await reload() }
     }
 
+    private func startInlineNotesEdit(for item: ProjectItem) {
+        inlineEditingNotesText = item.notes ?? ""
+        inlineEditingNotesID = item.id
+    }
+
+    private func commitInlineNotesEdit(for item: ProjectItem) {
+        guard inlineEditingNotesID == item.id else { return }
+        let newNotes = inlineEditingNotesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        inlineEditingNotesID = nil
+        
+        let notesParam = newNotes.isEmpty ? nil : newNotes
+        if notesParam != item.notes {
+            _ = ek.updateItem(id: item.id, project: project.prefix, content: item.content,
+                               date: item.date, useDate: item.date != nil,
+                               containerName: item.containerName, notes: notesParam,
+                               priority: item.priority)
+        }
+        Task { await reload() }
+    }
+
+    private func cancelInlineNotesEdit(for item: ProjectItem) {
+        guard inlineEditingNotesID == item.id else { return }
+        inlineEditingNotesID = nil
+        Task { await reload() }
+    }
+
     private func addNewItemInline() {
         let reminderList = project.reminderListName ?? settings.defaultReminderListName
         guard !reminderList.isEmpty else { return }
@@ -286,7 +325,7 @@ struct ProjectDetailView: View {
             if let newId = ek.createReminder(project: project.prefix, content: "新建代办",
                                              listName: reminderList, dueDate: nil) {
                 await reload()
-                startInlineEdit(for: .init(id: newId, kind: .reminder, rawTitle: "", content: "新建代办", containerName: reminderList, isCompleted: false, date: nil, notes: nil, priority: 0))
+                startInlineEdit(for: .init(id: newId, kind: .reminder, rawTitle: "", content: "新建代办", containerName: reminderList, isCompleted: false, date: nil, notes: nil, priority: 0, url: nil))
             }
         }
     }
@@ -578,6 +617,13 @@ struct ItemRow: View {
     let isInlineEditing: Bool
     let onInlineCommit: (() -> Void)?
     let onInlineCancel: (() -> Void)?
+    
+    // Notes editing
+    let inlineEditingNotesText: Binding<String>?
+    let isInlineEditingNotes: Bool
+    let onInlineNotesCommit: (() -> Void)?
+    let onInlineNotesCancel: (() -> Void)?
+    let onStartNotesEdit: () -> Void
 
     @State private var hovered = false
 
@@ -587,7 +633,12 @@ struct ItemRow: View {
          inlineEditingText: Binding<String>? = nil,
          isInlineEditing: Bool = false,
          onInlineCommit: (() -> Void)? = nil,
-         onInlineCancel: (() -> Void)? = nil) {
+         onInlineCancel: (() -> Void)? = nil,
+         inlineEditingNotesText: Binding<String>? = nil,
+         isInlineEditingNotes: Bool = false,
+         onInlineNotesCommit: (() -> Void)? = nil,
+         onInlineNotesCancel: (() -> Void)? = nil,
+         onStartNotesEdit: @escaping () -> Void = {}) {
         self.item = item
         self.onToggle = onToggle
         self.onEdit = onEdit
@@ -595,6 +646,24 @@ struct ItemRow: View {
         self.isInlineEditing = isInlineEditing
         self.onInlineCommit = onInlineCommit
         self.onInlineCancel = onInlineCancel
+        self.inlineEditingNotesText = inlineEditingNotesText
+        self.isInlineEditingNotes = isInlineEditingNotes
+        self.onInlineNotesCommit = onInlineNotesCommit
+        self.onInlineNotesCancel = onInlineNotesCancel
+        self.onStartNotesEdit = onStartNotesEdit
+    }
+
+    private var leftStripeColor: Color {
+        switch item.priority {
+        case 1...4:
+            return .red
+        case 5:
+            return .orange
+        case 6...9:
+            return .blue
+        default:
+            return .clear
+        }
     }
 
     var body: some View {
@@ -631,106 +700,103 @@ struct ItemRow: View {
                 
                 Spacer()
                 
-                if !isInlineEditing && item.kind == .reminder && item.priority > 0 {
-                    priorityBadge(for: item.priority)
-                }
-                
-                if !isInlineEditing {
-                    Button {
-                        onEdit()
-                    } label: {
-                        Image(systemName: "pencil")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .opacity(hovered ? 1.0 : 0.0)
-                    .help("Edit item")
-                }
-            }
-            
-            if !isInlineEditing, let notes = item.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
-                    .multilineTextAlignment(.leading)
-                    .padding(.leading, 30)
-            }
-            
-            HStack(spacing: 12) {
-                HStack(spacing: 4) {
-                    Image(systemName: item.kind == .reminder ? "list.bullet" : "calendar")
-                        .font(.caption2)
-                    Text(item.containerName)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Color.secondary.opacity(0.1))
-                .clipShape(Capsule())
-                
-                if let date = item.date {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.caption2)
-                        Text(date, style: .date)
-                            .font(.system(size: 11, weight: .medium))
-                        if item.kind == .event {
-                            Text(date, style: .time)
-                                .font(.system(size: 11, weight: .medium))
+                HStack(spacing: 8) {
+                    if !isInlineEditing, let url = item.url {
+                        Link(destination: url) {
+                            Image(systemName: "link.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.blue)
                         }
+                        .buttonStyle(.plain)
+                        .help("Open link")
                     }
-                    .foregroundStyle(dateHighlightColor(for: date))
+                    
+                    if let date = item.date {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption2)
+                            Text(date, style: .date)
+                                .font(.system(size: 11, weight: .medium))
+                            if item.kind == .event {
+                                Text(date, style: .time)
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                        }
+                        .foregroundStyle(dateHighlightColor(for: date))
+                    }
+                    
+                    if !isInlineEditing {
+                        Button {
+                            onEdit()
+                        } label: {
+                            Image(systemName: "pencil")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(hovered ? 1.0 : 0.0)
+                        .help("Edit item")
+                    }
                 }
+                .padding(.top, 2)
             }
-            .padding(.leading, 30)
+            
+            // Notes
+            if isInlineEditingNotes, let inlineEditingNotesText {
+                InlineEditTextField(text: inlineEditingNotesText,
+                                    onCommit: { onInlineNotesCommit?() },
+                                    onCancel: { onInlineNotesCancel?() })
+                    .frame(minHeight: 40)
+                    .padding(.leading, 30)
+            } else {
+                let displayNotes = item.notes ?? ""
+                Group {
+                    if !displayNotes.isEmpty {
+                        Text(displayNotes)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                            .multilineTextAlignment(.leading)
+                    } else {
+                        Text("Double-click to add details...")
+                            .font(.system(size: 12).italic())
+                            .foregroundStyle(.tertiary)
+                            .opacity(hovered ? 0.7 : 0.0)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    onStartNotesEdit()
+                }
+                .padding(.leading, 30)
+            }
         }
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.4))
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            HStack {
+                if item.kind == .reminder && item.priority > 0 {
+                    Rectangle()
+                        .fill(leftStripeColor)
+                        .frame(width: 5)
+                }
+                Spacer()
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(hovered ? Color.blue.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(hovered ? Color.blue.opacity(0.4) : Color.primary.opacity(0.1), lineWidth: 1.5)
         )
-        .shadow(color: Color.black.opacity(hovered ? 0.04 : 0.01), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(hovered ? 0.12 : 0.06), radius: hovered ? 8 : 4, x: 0, y: hovered ? 4 : 2)
         .contentShape(Rectangle())
         .onHover { isHovered in
             withAnimation(.easeOut(duration: 0.15)) {
                 hovered = isHovered
-            }
-        }
-    }
-    
-    private func priorityBadge(for priority: Int) -> some View {
-        let text: String
-        let color: Color
-        switch priority {
-        case 1...4:
-            text = "High !!!"
-            color = .red
-        case 5:
-            text = "Medium !!"
-            color = .orange
-        case 6...9:
-            text = "Low !"
-            color = .blue
-        default:
-            text = ""
-            color = .secondary
-        }
-        
-        return Group {
-            if !text.isEmpty {
-                Text(text)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(color)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(color.opacity(0.12))
-                    .cornerRadius(4)
             }
         }
     }

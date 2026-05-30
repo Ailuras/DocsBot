@@ -14,6 +14,7 @@ struct ProjectItem: Identifiable, Hashable {
     let date: Date?         // due date (reminder) or start date (event)
     let notes: String?      // notes / description
     let priority: Int       // priority value (0 = none, 1-4 = high, 5 = med, 9 = low)
+    let url: URL?           // URL associated with the item
 }
 
 /// Wraps EKEventStore: authorization, fetching, prefix-filtering, write-back.
@@ -117,7 +118,8 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
                         isCompleted: r.isCompleted,
                         date: r.dueDateComponents?.date,
                         notes: r.notes,
-                        priority: r.priority
+                        priority: r.priority,
+                        url: r.url
                     )
                 }
                 cont.resume(returning: items)
@@ -155,7 +157,8 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
                 isCompleted: false,
                 date: e.startDate,
                 notes: e.notes,
-                priority: 0
+                priority: 0,
+                url: e.url
             )
         }
     }

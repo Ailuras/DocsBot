@@ -142,6 +142,7 @@ struct ProjectDetailView: View {
     @State private var inlineEditingNotesID: String?
     @State private var inlineEditingNotesText: String = ""
     @State private var draggedItem: ProjectItem? = nil
+    @State private var selectedDetailItem: ProjectItem? = nil
 
     private var grouped: [(zone: String, items: [ProjectItem])] {
         let groupedDict = Dictionary(grouping: items, by: \.containerName)
@@ -157,10 +158,24 @@ struct ProjectDetailView: View {
     }
 
     var body: some View {
-        Group {
-            switch mode {
-            case .all:  allItemsView
-            case .week: WeekView(project: project)
+        HStack(spacing: 0) {
+            Group {
+                switch mode {
+                case .all:  allItemsView
+                case .week: WeekView(project: project)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            if let selectedItem = selectedDetailItem {
+                Divider()
+                ItemDetailPane(item: selectedItem, project: project, onClose: {
+                    selectedDetailItem = nil
+                }, onUpdate: {
+                    Task { await reload() }
+                })
+                .frame(width: 320)
+                .transition(.move(edge: .trailing))
             }
         }
         .navigationTitle(project.name)
@@ -206,6 +221,7 @@ struct ProjectDetailView: View {
                             ForEach(group.items) { item in
                                 ItemRow(
                                     item: item,
+                                    isSelected: item.id == selectedDetailItem?.id,
                                     onToggle: { completed in
                                         Task {
                                             await ek.setReminderCompleted(id: item.id, completed: completed)
@@ -247,6 +263,11 @@ struct ProjectDetailView: View {
                                 .onTapGesture(count: 2) {
                                     startInlineEdit(for: item)
                                 }
+                                .onTapGesture {
+                                    withAnimation(.easeOut(duration: 0.15)) {
+                                        selectedDetailItem = item
+                                    }
+                                }
                                 .onDrag {
                                     self.draggedItem = item
                                     return NSItemProvider(object: item.id as NSString)
@@ -256,7 +277,7 @@ struct ProjectDetailView: View {
                                 })
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
-                                .padding(.vertical, 4)
+                                .padding(.vertical, 2.5)
                             }
                         }
                     }
@@ -352,6 +373,9 @@ struct ProjectDetailView: View {
         let fetched = await ek.items(forProject: project.prefix,
                                      enabledContainers: settings.enabledContainerNames)
         items = sortItems(fetched)
+        if let selectedId = selectedDetailItem?.id {
+            selectedDetailItem = items.first { $0.id == selectedId }
+        }
         loading = false
     }
 
@@ -662,6 +686,7 @@ struct InlineEditTextField: NSViewRepresentable {
 
 struct ItemRow: View {
     let item: ProjectItem
+    let isSelected: Bool
     let onToggle: (Bool) -> Void
     let onEdit: () -> Void
     
@@ -681,6 +706,7 @@ struct ItemRow: View {
     @State private var hovered = false
 
     init(item: ProjectItem,
+         isSelected: Bool = false,
          onToggle: @escaping (Bool) -> Void,
          onEdit: @escaping () -> Void,
          inlineEditingText: Binding<String>? = nil,
@@ -693,6 +719,7 @@ struct ItemRow: View {
          onInlineNotesCancel: (() -> Void)? = nil,
          onStartNotesEdit: @escaping () -> Void = {}) {
         self.item = item
+        self.isSelected = isSelected
         self.onToggle = onToggle
         self.onEdit = onEdit
         self.inlineEditingText = inlineEditingText
@@ -753,10 +780,19 @@ struct ItemRow: View {
                                             onCancel: { onInlineCancel?() })
                             .frame(minHeight: 22)
                     } else {
-                        Text(item.content)
-                            .font(.system(size: 14, weight: .semibold))
-                            .strikethrough(item.isCompleted)
-                            .foregroundStyle(item.isCompleted ? .secondary : .primary)
+                        HStack(spacing: 6) {
+                            Text(item.content)
+                                .font(.system(size: 14, weight: .semibold))
+                                .strikethrough(item.isCompleted)
+                                .foregroundStyle(item.isCompleted ? .secondary : .primary)
+                            
+                            if let notes = item.notes, !notes.isEmpty {
+                                Image(systemName: "doc.text")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.top, 1)
+                            }
+                        }
                     }
                 }
                 
@@ -809,41 +845,9 @@ struct ItemRow: View {
                 }
                 .padding(.top, 2)
             }
-            
-            // Notes
-            if isInlineEditingNotes, let inlineEditingNotesText {
-                InlineEditTextField(text: inlineEditingNotesText,
-                                    fontSize: 12,
-                                    fontWeight: .regular,
-                                    onCommit: { onInlineNotesCommit?() },
-                                    onCancel: { onInlineNotesCancel?() })
-                    .frame(minHeight: 40)
-                    .padding(.leading, 30)
-            } else {
-                let displayNotes = item.notes ?? ""
-                Group {
-                    if !displayNotes.isEmpty {
-                        Text(displayNotes)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(4)
-                            .multilineTextAlignment(.leading)
-                    } else {
-                        Text("Double-click to add details...")
-                            .font(.system(size: 12).italic())
-                            .foregroundStyle(.tertiary)
-                            .opacity(hovered ? 0.7 : 0.0)
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture(count: 2) {
-                    onStartNotesEdit()
-                }
-                .padding(.leading, 30)
-            }
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
@@ -868,7 +872,7 @@ struct ItemRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(hovered ? borderHighlightColor.opacity(0.4) : Color.primary.opacity(0.1), lineWidth: 1.5)
+                .stroke(isSelected ? Color.blue : (hovered ? borderHighlightColor.opacity(0.4) : Color.primary.opacity(0.1)), lineWidth: isSelected ? 2 : 1.5)
         )
         .shadow(color: Color.black.opacity(hovered ? 0.12 : 0.06), radius: hovered ? 8 : 4, x: 0, y: hovered ? 4 : 2)
         .contentShape(Rectangle())

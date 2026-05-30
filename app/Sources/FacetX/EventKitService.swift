@@ -339,12 +339,13 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
 
     /// Update an existing item (reminder or event)'s content, date, container, notes, and priority.
     func updateItem(id: String, project: String, content: String,
-                    date: Date?, useDate: Bool, containerName: String, notes: String?, priority: Int) -> Bool {
+                    date: Date?, useDate: Bool, containerName: String, notes: String?, priority: Int, url: URL? = nil) -> Bool {
         guard let item = store.calendarItem(withIdentifier: id) else { return false }
         
         let newTitle = ProjectPrefix.makeTitle(project: project, content: content)
         item.title = newTitle
         item.notes = notes
+        item.url = url
         
         if let reminder = item as? EKReminder {
             reminder.priority = priority

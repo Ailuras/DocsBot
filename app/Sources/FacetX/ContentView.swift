@@ -135,6 +135,8 @@ struct ProjectDetailView: View {
     @State private var loading = false
     @State private var showCreate = false
     @State private var editingItem: ProjectItem?
+    @State private var inlineEditingID: String?
+    @State private var inlineEditingText: String = ""
 
     private var grouped: [(zone: String, items: [ProjectItem])] {
         Dictionary(grouping: items, by: \.containerName)
@@ -178,38 +180,106 @@ struct ProjectDetailView: View {
     @ViewBuilder private var allItemsView: some View {
         if loading {
             ProgressView().controlSize(.large)
-        } else if items.isEmpty {
-            ContentUnavailableView("No items",
-                systemImage: "tray",
-                description: Text("No calendar or reminder items start with “\(project.prefix):”."))
         } else {
             List {
-                ForEach(grouped, id: \.zone) { group in
-                    Section(group.zone) {
-                        ForEach(group.items) { item in
-                            ItemRow(item: item) { completed in
-                                Task {
-                                    await ek.setReminderCompleted(id: item.id, completed: completed)
-                                    await reload()
+                if items.isEmpty {
+                    Section {
+                        Text("No items yet.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(grouped, id: \.zone) { group in
+                        Section(group.zone) {
+                            ForEach(group.items) { item in
+                                ItemRow(
+                                    item: item,
+                                    onToggle: { completed in
+                                        Task {
+                                            await ek.setReminderCompleted(id: item.id, completed: completed)
+                                            await reload()
+                                        }
+                                    },
+                                    onEdit: {
+                                        editingItem = item
+                                    },
+                                    inlineEditingText: $inlineEditingText,
+                                    isInlineEditing: item.id == inlineEditingID,
+                                    onInlineCommit: {
+                                        commitInlineEdit(for: item)
+                                    },
+                                    onInlineCancel: {
+                                        cancelInlineEdit(for: item)
+                                    }
+                                )
+                                .contextMenu {
+                                    Button("Edit...") {
+                                        editingItem = item
+                                    }
+                                    Button("Delete", role: .destructive) {
+                                        _ = ek.deleteItem(id: item.id)
+                                        Task { await reload() }
+                                    }
                                 }
-                            } onEdit: {
-                                editingItem = item
-                            }
-                            .contextMenu {
-                                Button("Edit...") {
-                                    editingItem = item
+                                .onTapGesture(count: 2) {
+                                    startInlineEdit(for: item)
                                 }
-                                Button("Delete", role: .destructive) {
-                                    _ = ek.deleteItem(id: item.id)
-                                    Task { await reload() }
-                                }
-                            }
-                            .onTapGesture(count: 2) {
-                                editingItem = item
                             }
                         }
                     }
                 }
+                
+                Section {
+                    Button {
+                        addNewItemInline()
+                    } label: {
+                        Label("Add item...", systemImage: "plus.circle.fill")
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
+    private func startInlineEdit(for item: ProjectItem) {
+        inlineEditingText = item.content
+        inlineEditingID = item.id
+    }
+
+    private func commitInlineEdit(for item: ProjectItem) {
+        guard inlineEditingID == item.id else { return }
+        let newContent = inlineEditingText.trimmingCharacters(in: .whitespaces)
+        inlineEditingID = nil
+        
+        if newContent.isEmpty {
+            _ = ek.deleteItem(id: item.id)
+        } else if newContent != item.content {
+            _ = ek.updateItem(id: item.id, project: project.prefix, content: newContent,
+                               date: item.date, useDate: item.date != nil,
+                               containerName: item.containerName)
+        }
+        Task { await reload() }
+    }
+
+    private func cancelInlineEdit(for item: ProjectItem) {
+        guard inlineEditingID == item.id else { return }
+        inlineEditingID = nil
+        if item.content == "新建代办" {
+            _ = ek.deleteItem(id: item.id)
+        }
+        Task { await reload() }
+    }
+
+    private func addNewItemInline() {
+        let reminderList = project.reminderListName ?? settings.defaultReminderListName
+        guard !reminderList.isEmpty else { return }
+        Task {
+            if let newId = ek.createReminder(project: project.prefix, content: "新建代办",
+                                             listName: reminderList, dueDate: nil) {
+                await reload()
+                startInlineEdit(for: .init(id: newId, kind: .reminder, rawTitle: "", content: "新建代办", containerName: reminderList, isCompleted: false, date: nil))
             }
         }
     }
@@ -431,12 +501,94 @@ private struct EditProjectView: View {
     }
 }
 
+struct InlineEditTextField: NSViewRepresentable {
+    @Binding var text: String
+    var onCommit: () -> Void
+    var onCancel: () -> Void
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.delegate = context.coordinator
+        textField.isBordered = false
+        textField.drawsBackground = false
+        textField.focusRingType = .none
+        textField.font = .systemFont(ofSize: 13, weight: .regular)
+        textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        
+        DispatchQueue.main.async {
+            textField.selectText(nil)
+        }
+        return textField
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: InlineEditTextField
+        var didCancel = false
+        
+        init(_ parent: InlineEditTextField) {
+            self.parent = parent
+        }
+        
+        func controlTextDidChange(_ obj: Notification) {
+            if let textField = obj.object as? NSTextField {
+                parent.text = textField.stringValue
+            }
+        }
+        
+        func controlTextDidEndEditing(_ obj: Notification) {
+            if didCancel { return }
+            parent.onCommit()
+        }
+        
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                didCancel = true
+                parent.onCancel()
+                return true
+            }
+            return false
+        }
+    }
+}
+
 struct ItemRow: View {
     let item: ProjectItem
     let onToggle: (Bool) -> Void
     let onEdit: () -> Void
+    
+    // Inline editing bindings and parameters (optional)
+    let inlineEditingText: Binding<String>?
+    let isInlineEditing: Bool
+    let onInlineCommit: (() -> Void)?
+    let onInlineCancel: (() -> Void)?
 
     @State private var hovered = false
+
+    init(item: ProjectItem,
+         onToggle: @escaping (Bool) -> Void,
+         onEdit: @escaping () -> Void,
+         inlineEditingText: Binding<String>? = nil,
+         isInlineEditing: Bool = false,
+         onInlineCommit: (() -> Void)? = nil,
+         onInlineCancel: (() -> Void)? = nil) {
+        self.item = item
+        self.onToggle = onToggle
+        self.onEdit = onEdit
+        self.inlineEditingText = inlineEditingText
+        self.isInlineEditing = isInlineEditing
+        self.onInlineCommit = onInlineCommit
+        self.onInlineCancel = onInlineCancel
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -449,25 +601,36 @@ struct ItemRow: View {
             } else {
                 Image(systemName: "calendar").foregroundStyle(.blue)
             }
+            
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.content)
-                    .strikethrough(item.isCompleted)
-                    .foregroundStyle(item.isCompleted ? .secondary : .primary)
+                if isInlineEditing, let inlineEditingText {
+                    InlineEditTextField(text: inlineEditingText,
+                                        onCommit: { onInlineCommit?() },
+                                        onCancel: { onInlineCancel?() })
+                        .frame(minHeight: 20)
+                } else {
+                    Text(item.content)
+                        .strikethrough(item.isCompleted)
+                        .foregroundStyle(item.isCompleted ? .secondary : .primary)
+                }
+                
                 if let date = item.date {
                     Text(date, style: .date).font(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer()
             
-            Button {
-                onEdit()
-            } label: {
-                Image(systemName: "pencil")
-                    .foregroundStyle(.secondary)
+            if !isInlineEditing {
+                Button {
+                    onEdit()
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .opacity(hovered ? 1.0 : 0.0)
+                .help("Edit item")
             }
-            .buttonStyle(.plain)
-            .opacity(hovered ? 1.0 : 0.0)
-            .help("Edit item")
         }
         .contentShape(Rectangle())
         .onHover { isHovered in

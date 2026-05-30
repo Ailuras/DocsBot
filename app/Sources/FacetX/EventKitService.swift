@@ -257,13 +257,13 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
     }
 
     /// Create a reminder titled `Project: content` in the named list.
-    /// `dueDate` is optional. Returns true on success.
+    /// `dueDate` is optional. Returns the reminder's identifier on success, or nil.
     @discardableResult
     func createReminder(project: String, content: String,
-                        listName: String, dueDate: Date?) -> Bool {
+                        listName: String, dueDate: Date?) -> String? {
         guard let list = store.calendars(for: .reminder)
             .first(where: { $0.title == listName }) ?? store.defaultCalendarForNewReminders()
-        else { return false }
+        else { return nil }
         let r = EKReminder(eventStore: store)
         r.title = ProjectPrefix.makeTitle(project: project, content: content)
         r.calendar = list
@@ -271,7 +271,12 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
             r.dueDateComponents = Calendar.current.dateComponents(
                 [.year, .month, .day], from: due)
         }
-        do { try store.save(r, commit: true); return true } catch { return false }
+        do {
+            try store.save(r, commit: true)
+            return r.calendarItemIdentifier
+        } catch {
+            return nil
+        }
     }
 
     /// Remove any reminders whose title contains `marker` (used to clean up

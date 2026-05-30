@@ -122,7 +122,7 @@ struct QuickCaptureView: View {
         error = nil
         let ok = ek.createReminder(project: project.prefix, content: content,
                                    listName: listName, dueDate: nil)
-        if ok {
+        if ok != nil {
             text = ""
             justAdded = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justAdded = false }

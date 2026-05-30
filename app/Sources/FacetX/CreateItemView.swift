@@ -96,7 +96,7 @@ struct CreateItemView: View {
         switch kind {
         case .reminder:
             ok = ek.createReminder(project: project.prefix, content: text,
-                                   listName: container, dueDate: useDate ? date : nil)
+                                   listName: container, dueDate: useDate ? date : nil) != nil
         case .event:
             ok = ek.createEvent(project: project.prefix, content: text,
                                 calendarName: container, startDate: useDate ? date : Date())

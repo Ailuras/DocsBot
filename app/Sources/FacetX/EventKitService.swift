@@ -369,10 +369,9 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
             }
             do { try store.save(reminder, commit: true); return true } catch { return false }
         } else if let event = item as? EKEvent {
-            if useDate, let start = date {
-                event.startDate = start
-                event.endDate = Calendar.current.date(byAdding: .minute, value: 60, to: start)
-            }
+            guard let start = date else { return false }
+            event.startDate = start
+            event.endDate = Calendar.current.date(byAdding: .minute, value: 60, to: start)
             do { try store.save(event, span: .thisEvent, commit: true); return true } catch { return false }
         }
         return false

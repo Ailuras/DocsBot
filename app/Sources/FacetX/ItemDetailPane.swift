@@ -27,8 +27,10 @@ struct ItemDetailPane: View {
         if notes.trimmingCharacters(in: .whitespacesAndNewlines) != (item.notes ?? "") { return true }
         if priority != item.priority { return true }
         let itemHasDate = item.date != nil
-        if useDate != itemHasDate { return true }
-        if useDate, let d = item.date, Calendar.current.compare(date, to: d, toGranularity: .minute) != .orderedSame { return true }
+        if item.kind == .reminder, useDate != itemHasDate { return true }
+        if (item.kind == .event || useDate),
+           let d = item.date,
+           Calendar.current.compare(date, to: d, toGranularity: .minute) != .orderedSame { return true }
         if containerName != item.containerName { return true }
         if urlString.trimmingCharacters(in: .whitespaces) != (item.url?.absoluteString ?? "") { return true }
         return false
@@ -220,9 +222,14 @@ struct ItemDetailPane: View {
 
     private var dateControl: some View {
         HStack(spacing: 8) {
-            if useDate {
+            if item.kind == .event {
+                DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .controlSize(.small)
+            } else if useDate {
                 DatePicker("", selection: $date,
-                           displayedComponents: item.kind == .reminder ? [.date] : [.date, .hourAndMinute])
+                           displayedComponents: [.date])
                     .labelsHidden()
                     .datePickerStyle(.compact)
                     .controlSize(.small)
@@ -232,10 +239,12 @@ struct ItemDetailPane: View {
                     .foregroundStyle(.tertiary)
             }
 
-            Toggle("", isOn: $useDate)
-                .labelsHidden()
-                .toggleStyle(.checkbox)
-                .controlSize(.small)
+            if item.kind == .reminder {
+                Toggle("", isOn: $useDate)
+                    .labelsHidden()
+                    .toggleStyle(.checkbox)
+                    .controlSize(.small)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
@@ -312,7 +321,10 @@ struct ItemDetailPane: View {
         priority = item.priority
         containerName = item.containerName
         urlString = item.url?.absoluteString ?? ""
-        if let d = item.date {
+        if item.kind == .event {
+            useDate = true
+            date = item.date ?? Date()
+        } else if let d = item.date {
             useDate = true
             date = d
         } else {
@@ -328,9 +340,10 @@ struct ItemDetailPane: View {
         saving = true
         let trimmedURL = urlString.trimmingCharacters(in: .whitespaces)
         let urlParam = trimmedURL.isEmpty ? nil : URL(string: trimmedURL)
+        let shouldUseDate = item.kind == .event || useDate
 
         let ok = ek.updateItem(id: item.id, project: project.prefix, content: text,
-                               date: useDate ? date : nil, useDate: useDate,
+                               date: shouldUseDate ? date : nil, useDate: shouldUseDate,
                                containerName: containerName,
                                notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
                                priority: priority, url: urlParam)

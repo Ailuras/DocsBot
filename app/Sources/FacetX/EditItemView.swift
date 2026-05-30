@@ -64,11 +64,18 @@ struct EditItemView: View {
                 .labelsHidden()
             }
 
-            Toggle(item.kind == .reminder ? "Due date" : "Start date", isOn: $useDate)
-            if useDate {
-                DatePicker("", selection: $date,
-                           displayedComponents: item.kind == .reminder ? [.date] : [.date, .hourAndMinute])
-                    .labelsHidden()
+            if item.kind == .reminder {
+                Toggle("Due date", isOn: $useDate)
+                if useDate {
+                    DatePicker("", selection: $date, displayedComponents: [.date])
+                        .labelsHidden()
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Start date").font(.caption).foregroundStyle(.secondary)
+                    DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
+                }
             }
 
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
@@ -102,7 +109,10 @@ struct EditItemView: View {
         notes = item.notes ?? ""
         priority = item.priority
         containerName = item.containerName
-        if let d = item.date {
+        if item.kind == .event {
+            useDate = true
+            date = item.date ?? Date()
+        } else if let d = item.date {
             useDate = true
             date = d
         } else {
@@ -116,8 +126,9 @@ struct EditItemView: View {
         guard !text.isEmpty, !containerName.isEmpty else { return }
         saving = true
         error = nil
+        let shouldUseDate = item.kind == .event || useDate
         let ok = ek.updateItem(id: item.id, project: project.prefix, content: text,
-                               date: useDate ? date : nil, useDate: useDate,
+                               date: shouldUseDate ? date : nil, useDate: shouldUseDate,
                                containerName: containerName, notes: notes.isEmpty ? nil : notes,
                                priority: priority)
         saving = false

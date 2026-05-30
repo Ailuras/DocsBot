@@ -71,11 +71,18 @@ struct CreateItemView: View {
                     .foregroundStyle(targetContainer.isEmpty ? .red : .secondary)
             }
 
-            Toggle(kind == .reminder ? "Due date" : "Start date", isOn: $useDate)
-            if useDate {
-                DatePicker("", selection: $date,
-                           displayedComponents: kind == .reminder ? [.date] : [.date, .hourAndMinute])
-                    .labelsHidden()
+            if kind == .reminder {
+                Toggle("Due date", isOn: $useDate)
+                if useDate {
+                    DatePicker("", selection: $date, displayedComponents: [.date])
+                        .labelsHidden()
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Start date").font(.caption).foregroundStyle(.secondary)
+                    DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
+                }
             }
 
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
@@ -122,7 +129,7 @@ struct CreateItemView: View {
                                    priority: priority) != nil
         case .event:
             ok = ek.createEvent(project: project.prefix, content: text,
-                                calendarName: container, startDate: useDate ? date : Date(),
+                                calendarName: container, startDate: date,
                                 notes: notes.isEmpty ? nil : notes)
         }
         saving = false

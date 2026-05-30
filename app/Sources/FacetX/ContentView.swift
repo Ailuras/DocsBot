@@ -600,6 +600,8 @@ private struct EditProjectView: View {
 
 struct InlineEditTextField: NSViewRepresentable {
     @Binding var text: String
+    var fontSize: CGFloat = 13
+    var fontWeight: NSFont.Weight = .regular
     var onCommit: () -> Void
     var onCancel: () -> Void
 
@@ -609,7 +611,7 @@ struct InlineEditTextField: NSViewRepresentable {
         textField.isBordered = false
         textField.drawsBackground = false
         textField.focusRingType = .none
-        textField.font = .systemFont(ofSize: 13, weight: .regular)
+        textField.font = .systemFont(ofSize: fontSize, weight: fontWeight)
         textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
         DispatchQueue.main.async {
@@ -717,6 +719,13 @@ struct ItemRow: View {
         }
     }
 
+    private var borderHighlightColor: Color {
+        if item.kind == .reminder && item.priority > 0 {
+            return leftStripeColor
+        }
+        return .blue
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 10) {
@@ -738,6 +747,8 @@ struct ItemRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if isInlineEditing, let inlineEditingText {
                         InlineEditTextField(text: inlineEditingText,
+                                            fontSize: 14,
+                                            fontWeight: .semibold,
                                             onCommit: { onInlineCommit?() },
                                             onCancel: { onInlineCancel?() })
                             .frame(minHeight: 22)
@@ -754,26 +765,34 @@ struct ItemRow: View {
                 HStack(spacing: 8) {
                     if !isInlineEditing, let url = item.url {
                         Link(destination: url) {
-                            Image(systemName: "link.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.blue)
+                            HStack(spacing: 4) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 10))
+                                Text(url.host?.replacingOccurrences(of: "www.", with: "") ?? "Link")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.blue.opacity(0.12))
+                            .foregroundStyle(.blue)
+                            .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
-                        .help("Open link")
+                        .help("Open link: \(url.absoluteString)")
                     }
                     
                     if let date = item.date {
                         HStack(spacing: 4) {
-                            Image(systemName: "clock")
-                                .font(.caption2)
-                            Text(date, style: .date)
-                                .font(.system(size: 11, weight: .medium))
-                            if item.kind == .event {
-                                Text(date, style: .time)
-                                    .font(.system(size: 11, weight: .medium))
-                            }
+                            Image(systemName: item.kind == .reminder ? "calendar.badge.clock" : "clock")
+                                .font(.system(size: 10))
+                            Text(formattedDate(date))
+                                .font(.system(size: 10, weight: .medium))
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(dateHighlightColor(for: date).opacity(0.12))
                         .foregroundStyle(dateHighlightColor(for: date))
+                        .clipShape(Capsule())
                     }
                     
                     if !isInlineEditing {
@@ -794,6 +813,8 @@ struct ItemRow: View {
             // Notes
             if isInlineEditingNotes, let inlineEditingNotesText {
                 InlineEditTextField(text: inlineEditingNotesText,
+                                    fontSize: 12,
+                                    fontWeight: .regular,
                                     onCommit: { onInlineNotesCommit?() },
                                     onCancel: { onInlineNotesCancel?() })
                     .frame(minHeight: 40)
@@ -824,8 +845,14 @@ struct ItemRow: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                if item.kind == .reminder && item.priority > 0 {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(leftStripeColor.opacity(0.03))
+                }
+            }
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
@@ -841,7 +868,7 @@ struct ItemRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(hovered ? Color.blue.opacity(0.4) : Color.primary.opacity(0.1), lineWidth: 1.5)
+                .stroke(hovered ? borderHighlightColor.opacity(0.4) : Color.primary.opacity(0.1), lineWidth: 1.5)
         )
         .shadow(color: Color.black.opacity(hovered ? 0.12 : 0.06), radius: hovered ? 8 : 4, x: 0, y: hovered ? 4 : 2)
         .contentShape(Rectangle())
@@ -861,6 +888,38 @@ struct ItemRow: View {
             return .red
         }
         return .secondary
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        
+        let hasTime = item.kind == .event || calendar.component(.hour, from: date) != 0 || calendar.component(.minute, from: date) != 0
+        
+        if calendar.isDateInToday(date) {
+            if hasTime {
+                formatter.dateFormat = "HH:mm"
+                return "Today " + formatter.string(from: date)
+            } else {
+                return "Today"
+            }
+        } else if calendar.isDateInTomorrow(date) {
+            if hasTime {
+                formatter.dateFormat = "HH:mm"
+                return "Tomorrow " + formatter.string(from: date)
+            } else {
+                return "Tomorrow"
+            }
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
+            if hasTime {
+                formatter.dateFormat = "MMM d HH:mm"
+            } else {
+                formatter.dateFormat = "MMM d"
+            }
+            return formatter.string(from: date)
+        }
     }
 }
 

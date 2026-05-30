@@ -5,8 +5,8 @@
   <key>CFBundleName</key><string>FacetX</string>
   <key>CFBundleDisplayName</key><string>FacetX</string>
   <key>CFBundleIdentifier</key><string>com.facetx.app</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
+  <key>CFBundleVersion</key><string>2</string>
+  <key>CFBundleShortVersionString</key><string>0.2</string>
   <key>CFBundleExecutable</key><string>FacetX</string>
   <key>CFBundleIconFile</key><string>FacetX</string>
   <key>CFBundlePackageType</key><string>APPL</string>

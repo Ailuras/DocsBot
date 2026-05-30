@@ -41,13 +41,7 @@ struct EditItemView: View {
             if item.kind == .reminder {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Priority").font(.caption).foregroundStyle(.secondary)
-                    Picker("", selection: $priority) {
-                        Text("None").tag(0)
-                        Text("Low (!)").tag(9)
-                        Text("Medium (!!)").tag(5)
-                        Text("High (!!!)").tag(1)
-                    }
-                    .pickerStyle(.segmented)
+                    PriorityPillPicker(selection: $priority)
                 }
             }
 

@@ -452,9 +452,12 @@ struct ProjectDetailView: View {
             self.draggedItem = item
             return NSItemProvider(object: item.id as NSString)
         }
-        .onDrop(of: [.text], delegate: ItemDropDelegate(item: item, draggedItem: $draggedItem) { dragged, target in
-            moveItem(from: dragged, to: target)
-        })
+        .onDrop(of: [.text], delegate: ItemDropDelegate(
+            item: item,
+            draggedItem: $draggedItem,
+            onMove: { dragged, target in moveItem(from: dragged, to: target) },
+            onDrop: { commitItemOrder() }
+        ))
     }
 
     private func startInlineEdit(for item: ProjectItem) {
@@ -574,8 +577,13 @@ struct ProjectDetailView: View {
             withAnimation(.default) {
                 let movedItem = items.remove(at: fromIndex)
                 items.insert(movedItem, at: toIndex)
-                store.setItemOrder(projectID: project.id, orderedIDs: items.map(\.id))
             }
         }
+    }
+
+    /// Persist the current in-memory item order. Called once when the drag is
+    /// released, not on every drag-over (which would write to disk repeatedly).
+    private func commitItemOrder() {
+        store.setItemOrder(projectID: project.id, orderedIDs: items.map(\.id))
     }
 }

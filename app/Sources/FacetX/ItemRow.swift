@@ -316,9 +316,11 @@ struct ItemDropDelegate: DropDelegate {
     let item: ProjectItem
     @Binding var draggedItem: ProjectItem?
     var onMove: (ProjectItem, ProjectItem) -> Void
+    var onDrop: () -> Void
 
     func performDrop(info: DropInfo) -> Bool {
         self.draggedItem = nil
+        onDrop()
         return true
     }
 

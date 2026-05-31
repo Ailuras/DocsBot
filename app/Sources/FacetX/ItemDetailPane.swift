@@ -342,24 +342,26 @@ struct ItemDetailPane: View {
         let urlParam = trimmedURL.isEmpty ? nil : URL(string: trimmedURL)
         let shouldUseDate = item.kind == .event || useDate
 
-        let ok = ek.updateItem(id: item.id, project: project.prefix, content: text,
-                               date: shouldUseDate ? date : nil, useDate: shouldUseDate,
-                               containerName: containerName,
-                               notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
-                               priority: priority, url: urlParam, updateURL: true)
-        saving = false
-        if ok {
-            onUpdate()
+        Task {
+            let ok = await ek.updateItem(id: item.id, project: project.prefix, content: text,
+                                         date: shouldUseDate ? date : nil, useDate: shouldUseDate,
+                                         containerName: containerName,
+                                         notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
+                                         priority: priority, url: urlParam, updateURL: true)
+            saving = false
+            if ok { onUpdate() }
         }
     }
 
     private func deleteItem() {
         saving = true
-        let ok = ek.deleteItem(id: item.id)
-        saving = false
-        if ok {
-            onUpdate()
-            onClose()
+        Task {
+            let ok = await ek.deleteItem(id: item.id)
+            saving = false
+            if ok {
+                onUpdate()
+                onClose()
+            }
         }
     }
 }

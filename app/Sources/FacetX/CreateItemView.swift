@@ -115,20 +115,22 @@ struct CreateItemView: View {
         guard !text.isEmpty, !container.isEmpty else { return }
         saving = true
         error = nil
-        let ok: Bool
-        switch kind {
-        case .reminder:
-            ok = ek.createReminder(project: project.prefix, content: text,
-                                   listName: container, dueDate: useDate ? date : nil,
-                                   notes: notes.isEmpty ? nil : notes,
-                                   priority: priority) != nil
-        case .event:
-            ok = ek.createEvent(project: project.prefix, content: text,
-                                calendarName: container, startDate: date,
-                                notes: notes.isEmpty ? nil : notes)
+        Task {
+            let ok: Bool
+            switch kind {
+            case .reminder:
+                ok = await ek.createReminder(project: project.prefix, content: text,
+                                             listName: container, dueDate: useDate ? date : nil,
+                                             notes: notes.isEmpty ? nil : notes,
+                                             priority: priority) != nil
+            case .event:
+                ok = await ek.createEvent(project: project.prefix, content: text,
+                                          calendarName: container, startDate: date,
+                                          notes: notes.isEmpty ? nil : notes)
+            }
+            saving = false
+            if ok { onCreated(); dismiss() }
+            else { error = "Could not save to \(container). Check access." }
         }
-        saving = false
-        if ok { onCreated(); dismiss() }
-        else { error = "Could not save to \(container). Check access." }
     }
 }

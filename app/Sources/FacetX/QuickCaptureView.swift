@@ -120,14 +120,16 @@ struct QuickCaptureView: View {
             return
         }
         error = nil
-        let ok = ek.createReminder(project: project.prefix, content: content,
-                                   listName: listName, dueDate: nil)
-        if ok != nil {
-            text = ""
-            justAdded = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justAdded = false }
-        } else {
-            error = "Could not save to \(listName)."
+        Task {
+            let ok = await ek.createReminder(project: project.prefix, content: content,
+                                             listName: listName, dueDate: nil)
+            if ok != nil {
+                text = ""
+                justAdded = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justAdded = false }
+            } else {
+                error = "Could not save to \(listName)."
+            }
         }
     }
 }

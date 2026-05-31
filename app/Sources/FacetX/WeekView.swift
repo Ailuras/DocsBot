@@ -162,8 +162,7 @@ struct WeekView: View {
                         selectItem(item)
                     }
                     Button("Delete", role: .destructive) {
-                        _ = ek.deleteItem(id: item.id)
-                        Task { await reload() }
+                        Task { _ = await ek.deleteItem(id: item.id); await reload() }
                     }
                 }
                 .onTapGesture {

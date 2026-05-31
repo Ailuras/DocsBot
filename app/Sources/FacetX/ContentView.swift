@@ -433,8 +433,7 @@ struct ProjectDetailView: View {
                 withAnimation(.easeOut(duration: 0.15)) { selectedDetailItem = item }
             }
             Button("Delete", role: .destructive) {
-                _ = ek.deleteItem(id: item.id)
-                Task { await reload() }
+                Task { _ = await ek.deleteItem(id: item.id); await reload() }
             }
         }
         .onTapGesture(count: 2) {
@@ -468,26 +467,29 @@ struct ProjectDetailView: View {
         inlineEditingID = nil
         freshlyCreatedID = nil
 
-        if newContent.isEmpty {
-            _ = ek.deleteItem(id: item.id)
-        } else if newContent != item.content {
-            _ = ek.updateItem(id: item.id, project: project.prefix, content: newContent,
-                               date: item.date, useDate: item.date != nil,
-                               containerName: item.containerName, notes: item.notes,
-                               priority: item.priority)
+        Task {
+            if newContent.isEmpty {
+                _ = await ek.deleteItem(id: item.id)
+            } else if newContent != item.content {
+                _ = await ek.updateItem(id: item.id, project: project.prefix, content: newContent,
+                                        date: item.date, useDate: item.date != nil,
+                                        containerName: item.containerName, notes: item.notes,
+                                        priority: item.priority)
+            }
+            await reload()
         }
-        Task { await reload() }
     }
 
     private func cancelInlineEdit(for item: ProjectItem) {
         guard inlineEditingID == item.id else { return }
         inlineEditingID = nil
         // Only discard the row if it was a never-filled fresh placeholder.
-        if freshlyCreatedID == item.id {
-            _ = ek.deleteItem(id: item.id)
-        }
+        let wasFresh = freshlyCreatedID == item.id
         freshlyCreatedID = nil
-        Task { await reload() }
+        Task {
+            if wasFresh { _ = await ek.deleteItem(id: item.id) }
+            await reload()
+        }
     }
 
     private func startInlineNotesEdit(for item: ProjectItem) {
@@ -501,13 +503,15 @@ struct ProjectDetailView: View {
         inlineEditingNotesID = nil
         
         let notesParam = newNotes.isEmpty ? nil : newNotes
-        if notesParam != item.notes {
-            _ = ek.updateItem(id: item.id, project: project.prefix, content: item.content,
-                               date: item.date, useDate: item.date != nil,
-                               containerName: item.containerName, notes: notesParam,
-                               priority: item.priority)
+        Task {
+            if notesParam != item.notes {
+                _ = await ek.updateItem(id: item.id, project: project.prefix, content: item.content,
+                                        date: item.date, useDate: item.date != nil,
+                                        containerName: item.containerName, notes: notesParam,
+                                        priority: item.priority)
+            }
+            await reload()
         }
-        Task { await reload() }
     }
 
     private func cancelInlineNotesEdit(for item: ProjectItem) {
@@ -520,8 +524,8 @@ struct ProjectDetailView: View {
         let reminderList = project.reminderListName ?? settings.defaultReminderListName
         guard !reminderList.isEmpty else { return }
         Task {
-            if let newId = ek.createReminder(project: project.prefix, content: Self.placeholderContent,
-                                             listName: reminderList, dueDate: nil) {
+            if let newId = await ek.createReminder(project: project.prefix, content: Self.placeholderContent,
+                                                   listName: reminderList, dueDate: nil) {
                 freshlyCreatedID = newId
                 await reload()
                 startInlineEdit(for: .init(id: newId, kind: .reminder, rawTitle: "", content: Self.placeholderContent, containerName: reminderList, isCompleted: false, date: nil, notes: nil, priority: 0, url: nil))

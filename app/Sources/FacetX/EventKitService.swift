@@ -272,7 +272,7 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
     /// `dueDate` is optional. Returns the reminder's identifier on success, or nil.
     @discardableResult
     func createReminder(project: String, content: String,
-                        listName: String, dueDate: Date?, notes: String? = nil, priority: Int = 0) -> String? {
+                        listName: String, dueDate: Date?, notes: String? = nil, priority: Int = 0) async -> String? {
         guard let list = store.calendars(for: .reminder)
             .first(where: { $0.title == listName }) ?? store.defaultCalendarForNewReminders()
         else { return nil }
@@ -298,7 +298,7 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
     @discardableResult
     func createEvent(project: String, content: String,
                      calendarName: String, startDate: Date,
-                     durationMinutes: Int = 60, notes: String? = nil) -> Bool {
+                     durationMinutes: Int = 60, notes: String? = nil) async -> Bool {
         guard let cal = store.calendars(for: .event)
             .first(where: { $0.title == calendarName })
         else { return false }
@@ -312,7 +312,7 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
     }
 
     /// Delete an existing calendar item (reminder or event) by its identifier.
-    func deleteItem(id: String) -> Bool {
+    func deleteItem(id: String) async -> Bool {
         guard let item = store.calendarItem(withIdentifier: id) else { return false }
         if let reminder = item as? EKReminder {
             do { try store.remove(reminder, commit: true); return true } catch { return false }
@@ -329,7 +329,7 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
     /// the default would otherwise silently erase an item's existing link.
     func updateItem(id: String, project: String, content: String,
                     date: Date?, useDate: Bool, containerName: String, notes: String?, priority: Int,
-                    url: URL? = nil, updateURL: Bool = false) -> Bool {
+                    url: URL? = nil, updateURL: Bool = false) async -> Bool {
         guard let item = store.calendarItem(withIdentifier: id) else { return false }
 
         let newTitle = ProjectPrefix.makeTitle(project: project, content: content)

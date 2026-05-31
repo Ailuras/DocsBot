@@ -1,4 +1,5 @@
 import AppKit
+import FacetXCore
 import SwiftUI
 
 struct InlineEditTextField: NSViewRepresentable {

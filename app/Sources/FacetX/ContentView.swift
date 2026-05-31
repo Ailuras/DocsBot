@@ -1,3 +1,4 @@
+import FacetXCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -195,12 +196,8 @@ struct ProjectDetailView: View {
         showCompleted ? items : items.filter { !$0.isCompleted }
     }
 
-    private var grouped: [(zone: String, items: [ProjectItem])] {
-        // Dictionary(grouping:) preserves each item's order within its group, and
-        // visibleItems is already sorted, so the group arrays need no re-sort.
-        Dictionary(grouping: visibleItems, by: \.containerName)
-            .map { (zone: $0.key, items: $0.value) }
-            .sorted { $0.zone < $1.zone }
+    private var grouped: [ItemArrangement.ZoneGroup] {
+        ItemArrangement.groupedByZone(visibleItems)
     }
 
     var body: some View {
@@ -539,7 +536,7 @@ struct ProjectDetailView: View {
                                      enabledReminderLists: settings.enabledReminderListNames,
                                      enabledCalendars: settings.enabledCalendarNames)
         store.pruneItemOrder(projectID: project.id, keeping: Set(fetched.map(\.id)))
-        let sortedItems = sortItems(fetched)
+        let sortedItems = ItemArrangement.arranged(fetched, savedOrder: project.itemOrder ?? [])
         let selectedId = selectedDetailItem?.id
         if items.isEmpty {
             items = sortedItems
@@ -555,21 +552,6 @@ struct ProjectDetailView: View {
             }
         }
         loading = false
-    }
-
-    private func sortItems(_ fetched: [ProjectItem]) -> [ProjectItem] {
-        let order = project.itemOrder ?? []
-        return fetched.sorted { a, b in
-            if a.isCompleted != b.isCompleted {
-                return !a.isCompleted
-            }
-            let indexA = order.firstIndex(of: a.id) ?? Int.max
-            let indexB = order.firstIndex(of: b.id) ?? Int.max
-            if indexA == indexB {
-                return (a.date ?? Date.distantFuture) < (b.date ?? Date.distantFuture)
-            }
-            return indexA < indexB
-        }
     }
 
     private func moveItem(from source: ProjectItem, to destination: ProjectItem) {

@@ -25,16 +25,7 @@ struct WeekView: View {
     }
 
     private var weekItems: [ProjectItem] {
-        allItems.filter { item in
-            guard let d = item.date else { return false }
-            return week.contains(d)
-        }
-        .sorted { a, b in
-            if a.isCompleted != b.isCompleted {
-                return !a.isCompleted
-            }
-            return (a.date ?? .distantFuture) < (b.date ?? .distantFuture)
-        }
+        ItemArrangement.inWeek(allItems, week)
     }
 
     private var goal: WeekGoal? {

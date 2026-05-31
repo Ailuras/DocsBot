@@ -1,5 +1,6 @@
 import SwiftUI
 import EventKit
+import FacetXCore
 
 struct ItemDetailPane: View {
     @EnvironmentObject private var ek: EventKitService

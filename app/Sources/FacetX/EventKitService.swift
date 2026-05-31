@@ -2,22 +2,6 @@ import EventKit
 import FacetXCore
 import Foundation
 
-/// A reminder or calendar event, flattened for the UI and tagged with the
-/// project it belongs to (via the title prefix).
-struct ProjectItem: Identifiable, Hashable {
-    enum Kind { case reminder, event }
-    let id: String          // EventKit calendarItemIdentifier / eventIdentifier
-    let kind: Kind
-    let rawTitle: String
-    let content: String     // title with the project prefix stripped
-    let containerName: String   // reminder list / calendar = functional zone
-    let isCompleted: Bool
-    let date: Date?         // due date (reminder) or start date (event)
-    let notes: String?      // notes / description
-    let priority: Int       // priority value (0 = none, 1-4 = high, 5 = med, 9 = low)
-    let url: URL?           // URL associated with the item
-}
-
 /// Wraps EKEventStore: authorization, fetching, prefix-filtering, write-back.
 ///
 /// NOT `@MainActor`: EventKit's fetch callbacks fire on its own background

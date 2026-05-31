@@ -53,10 +53,23 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
                enabledReminderLists: Set<String>? = nil,
                enabledCalendars: Set<String>? = nil,
                eventWindowDays: Int = 120) async -> [ProjectItem] {
+        await items(forProjects: [project],
+                    enabledReminderLists: enabledReminderLists,
+                    enabledCalendars: enabledCalendars,
+                    eventWindowDays: eventWindowDays)
+    }
+
+    /// All items across several projects in one pass, for cross-project views
+    /// like Today. `prefixes` are the claimed project prefixes to keep.
+    func items(forProjects prefixes: Set<String>,
+               enabledReminderLists: Set<String>? = nil,
+               enabledCalendars: Set<String>? = nil,
+               eventWindowDays: Int = 120) async -> [ProjectItem] {
+        guard !prefixes.isEmpty else { return [] }
         let (rem, cal) = await MainActor.run { (remindersAuthorized, calendarAuthorized) }
         var result: [ProjectItem] = []
-        if rem { result += await reminders(forProject: project, enabled: enabledReminderLists) }
-        if cal { result += events(forProject: project, enabled: enabledCalendars, windowDays: eventWindowDays) }
+        if rem { result += await reminders(forProjects: prefixes, enabled: enabledReminderLists) }
+        if cal { result += events(forProjects: prefixes, enabled: enabledCalendars, windowDays: eventWindowDays) }
         return result.sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
@@ -87,7 +100,7 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
     /// The class is nonisolated, so fetchReminders' background-queue callback can
     /// run freely without tripping the Swift 6 main-actor isolation assertion
     /// (dispatch_assert_queue_fail → SIGTRAP) that crashed an earlier build.
-    private func reminders(forProject project: String, enabled: Set<String>?) async -> [ProjectItem] {
+    private func reminders(forProjects prefixes: Set<String>, enabled: Set<String>?) async -> [ProjectItem] {
         let lists = filtered(store.calendars(for: .reminder), by: enabled)
         guard !lists.isEmpty else { return [] }
         let pred = store.predicateForReminders(in: lists)
@@ -95,7 +108,8 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
             store.fetchReminders(matching: pred) { reminders in
                 let items = (reminders ?? []).compactMap { r -> ProjectItem? in
                     let title = r.title ?? ""
-                    guard ProjectPrefix.belongs(title: title, toProject: project) else { return nil }
+                    guard let name = ProjectPrefix.projectName(of: title),
+                          prefixes.contains(name) else { return nil }
                     return ProjectItem(
                         id: r.calendarItemIdentifier,
                         kind: .reminder,
@@ -131,10 +145,11 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
 
     // ── Events ─────────────────────────────────────────────────────────────
 
-    private func events(forProject project: String, enabled: Set<String>?, windowDays: Int) -> [ProjectItem] {
+    private func events(forProjects prefixes: Set<String>, enabled: Set<String>?, windowDays: Int) -> [ProjectItem] {
         recentEvents(enabled: enabled, windowDays: windowDays).compactMap { e in
             let title = e.title ?? ""
-            guard ProjectPrefix.belongs(title: title, toProject: project) else { return nil }
+            guard let name = ProjectPrefix.projectName(of: title),
+                  prefixes.contains(name) else { return nil }
             return ProjectItem(
                 id: e.eventIdentifier ?? UUID().uuidString,
                 kind: .event,

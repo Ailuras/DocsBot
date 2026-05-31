@@ -67,6 +67,9 @@ struct InlineEditTextField: NSViewRepresentable {
 struct ItemRow: View {
     let item: ProjectItem
     let isSelected: Bool
+    /// When set (cross-project views like Today), shows the owning project as a
+    /// small chip next to the content. Nil inside a single project's list.
+    let projectBadge: String?
     let onToggle: (Bool) -> Void
     let onEdit: () -> Void
 
@@ -85,6 +88,7 @@ struct ItemRow: View {
 
     init(item: ProjectItem,
          isSelected: Bool = false,
+         projectBadge: String? = nil,
          onToggle: @escaping (Bool) -> Void,
          onEdit: @escaping () -> Void,
          inlineEditingText: Binding<String>? = nil,
@@ -98,6 +102,7 @@ struct ItemRow: View {
          onStartNotesEdit: @escaping () -> Void = {}) {
         self.item = item
         self.isSelected = isSelected
+        self.projectBadge = projectBadge
         self.onToggle = onToggle
         self.onEdit = onEdit
         self.inlineEditingText = inlineEditingText
@@ -173,6 +178,16 @@ struct ItemRow: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .strikethrough(item.isCompleted)
                                 .foregroundStyle(item.isCompleted ? .secondary : .primary)
+
+                            if let projectBadge {
+                                Text(projectBadge)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(Color.accentColor)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.accentColor.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
 
                             if let notes = item.notes, !notes.isEmpty {
                                 Image(systemName: "doc.text")

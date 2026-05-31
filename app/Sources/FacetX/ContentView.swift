@@ -7,26 +7,29 @@ struct ContentView: View {
     @EnvironmentObject private var store: ProjectStore
     @EnvironmentObject private var settings: AppSettings
 
-    @State private var selectedID: Project.ID?
+    /// Sidebar selection: the cross-project Today view, or one project.
+    enum SidebarItem: Hashable { case today, project(Project.ID) }
+
+    @State private var selection: SidebarItem? = .today
     @State private var discovered: [String] = []
     @State private var draftProject: ProjectDraft?
     @State private var editingProject: Project?
 
-    private var selected: Project? {
-        store.activeProjects.first { $0.id == selectedID }
-    }
-
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                List(selection: $selectedID) {
+                List(selection: $selection) {
+                    Section {
+                        Label("Today", systemImage: "sun.max.fill")
+                            .tag(SidebarItem.today)
+                    }
                     Section("Projects") {
                         ForEach(store.activeProjects) { project in
                             ProjectSidebarRow(project: project)
-                            .tag(project.id)
+                            .tag(SidebarItem.project(project.id))
                             .contextMenu {
                                 Button("Edit Project") {
-                                    selectedID = project.id
+                                    selection = .project(project.id)
                                     editingProject = project
                                 }
                                 Divider()
@@ -54,21 +57,17 @@ struct ContentView: View {
             }
             .navigationTitle("FacetX")
         } detail: {
-            if let project = selected {
-                ProjectDetailView(project: project)
-            } else if store.activeProjects.isEmpty {
-                VStack(spacing: 12) {
-                    ContentUnavailableView("No projects yet",
+            switch selection {
+            case .today, nil:
+                TodayView(onOpenProject: { selection = .project($0) })
+            case .project(let id):
+                if let project = store.activeProjects.first(where: { $0.id == id }) {
+                    ProjectDetailView(project: project)
+                } else {
+                    ContentUnavailableView("Select a project",
                         systemImage: "folder",
-                        description: Text("Create a project to gather its calendar and reminder items."))
-                    Button { startNewProject() } label: {
-                        Label("New Project", systemImage: "plus.circle")
-                    }
+                        description: Text("Pick a project from the sidebar."))
                 }
-            } else {
-                ContentUnavailableView("Select a project",
-                    systemImage: "folder",
-                    description: Text("Pick a project from the sidebar."))
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -85,7 +84,7 @@ struct ContentView: View {
             NewProjectView(draft: draft) { name, prefix, tagline, reminderList, calendar in
                 let id = store.createProject(name: name, prefix: prefix, tagline: tagline,
                                              reminderListName: reminderList, calendarName: calendar)
-                selectedID = id
+                selection = .project(id)
                 draftProject = nil
             } onCancel: {
                 draftProject = nil

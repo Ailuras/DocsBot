@@ -293,24 +293,6 @@ final class EventKitService: ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// Remove any reminders whose title contains `marker` (used to clean up
-    /// self-test artifacts). Returns the count removed.
-    @discardableResult
-    func deleteRemindersContaining(_ marker: String) async -> Int {
-        let pred = store.predicateForReminders(in: store.calendars(for: .reminder))
-        let storeRef = store
-        return await withCheckedContinuation { cont in
-            storeRef.fetchReminders(matching: pred) { rems in
-                var removed = 0
-                for r in rems ?? [] where (r.title ?? "").contains(marker) {
-                    if (try? storeRef.remove(r, commit: false)) != nil { removed += 1 }
-                }
-                try? storeRef.commit()
-                cont.resume(returning: removed)
-            }
-        }
-    }
-
     /// Create a calendar event titled `Project: content` in the named calendar
     /// (= functional zone). Defaults to a 1-hour block at `startDate`.
     @discardableResult

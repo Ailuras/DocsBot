@@ -197,16 +197,11 @@ struct ProjectDetailView: View {
     }
 
     private var grouped: [(zone: String, items: [ProjectItem])] {
-        let groupedDict = Dictionary(grouping: visibleItems, by: \.containerName)
-        return groupedDict.map { (key, value) in
-            let sortedSectionItems = value.sorted { a, b in
-                let indexA = visibleItems.firstIndex(where: { $0.id == a.id }) ?? 0
-                let indexB = visibleItems.firstIndex(where: { $0.id == b.id }) ?? 0
-                return indexA < indexB
-            }
-            return (key, sortedSectionItems)
-        }
-        .sorted { $0.zone < $1.zone }
+        // Dictionary(grouping:) preserves each item's order within its group, and
+        // visibleItems is already sorted, so the group arrays need no re-sort.
+        Dictionary(grouping: visibleItems, by: \.containerName)
+            .map { (zone: $0.key, items: $0.value) }
+            .sorted { $0.zone < $1.zone }
     }
 
     var body: some View {
